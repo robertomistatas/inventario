@@ -153,10 +153,13 @@ const Login = ({ onLoginSuccess }) => {
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
-            <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-xl shadow-lg dark:bg-gray-800">
-                <div className="text-center">
-                    <Package className="w-16 h-16 mx-auto text-blue-600 dark:text-blue-500" />
-                    <h1 className="mt-4 text-3xl font-bold text-gray-900 dark:text-white">Mistatas Inventario</h1>
+            <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-xl shadow-lg dark:bg-gray-800">                <div className="text-center">
+                    <img 
+                        src="https://static.wixstatic.com/media/1831cb_2d8491304a02448cb1751c82852750ff~mv2.png/v1/fill/w_148,h_27,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/Logotipo%20MisTatas%20blanco.png"
+                        alt="Mistatas Logo"
+                        className="h-8 w-auto mx-auto mb-4"
+                    />
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Sistema de Inventario</h1>
                     <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Gestión inteligente de dispositivos</p>
                 </div>
                 <form className="space-y-6" onSubmit={handleLogin}>
@@ -230,12 +233,55 @@ const Dashboard = ({ items, onNavigate }) => {
         const lowStock = items.filter(item => item.quantity > item.criticalThreshold && item.quantity <= item.criticalThreshold * 1.5).length;
         const criticalStock = items.filter(item => item.quantity <= item.criticalThreshold).length;
         const sufficientStock = totalItems - lowStock - criticalStock;
-        return { totalItems, lowStock, criticalStock, sufficientStock };
+
+        // Obtener información de dispositivos fundamentales
+        const terminalesInteligentes = items.find(item => item.name === "TERMINALES INTELIGENTES") || { quantity: 0, criticalThreshold: 5 };
+        const gpsDevices = items.filter(item => item.name.includes("GPS")).reduce((total, item) => total + item.quantity, 0);
+        const gpsTotal = {
+            quantity: gpsDevices,
+            criticalThreshold: 6 // Umbral combinado para GPS
+        };
+
+        return { 
+            totalItems, 
+            lowStock, 
+            criticalStock, 
+            sufficientStock,
+            terminalesInteligentes,
+            gpsTotal
+        };
     }, [items]);
+
+    const getStatusColor = (item) => {
+        if (item.quantity <= item.criticalThreshold) return "red";
+        if (item.quantity <= item.criticalThreshold * 1.5) return "yellow";
+        return "green";
+    };
 
     return (
         <div className="p-6 space-y-6">
             <h2 className="text-3xl font-bold text-gray-800 dark:text-white">Dashboard</h2>
+            
+            {/* Dispositivos Fundamentales */}
+            <div className="p-4 bg-white rounded-xl shadow-md dark:bg-gray-800">
+                <h3 className="mb-4 text-xl font-semibold text-gray-800 dark:text-white">Dispositivos Fundamentales</h3>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <DashboardCard 
+                        title="Terminales Inteligentes" 
+                        value={summary.terminalesInteligentes.quantity} 
+                        icon={<Box className="w-10 h-10" />} 
+                        color={getStatusColor(summary.terminalesInteligentes)}
+                    />
+                    <DashboardCard 
+                        title="GPS (Total)" 
+                        value={summary.gpsTotal.quantity} 
+                        icon={<Box className="w-10 h-10" />} 
+                        color={getStatusColor(summary.gpsTotal)}
+                    />
+                </div>
+            </div>
+
+            {/* Resumen General */}
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 <DashboardCard title="Stock Suficiente" value={summary.sufficientStock} icon={<CheckCircle className="w-10 h-10" />} color="green" />
                 <DashboardCard title="Stock Bajo" value={summary.lowStock} icon={<AlertTriangle className="w-10 h-10" />} color="yellow" />
@@ -766,10 +812,12 @@ export default function App() {
     
     const Sidebar = () => (
         <div className="flex flex-col justify-between w-64 p-4 bg-white shadow-lg dark:bg-gray-800">
-            <div>
-                <div className="flex items-center mb-10 space-x-3">
-                     <Package className="w-10 h-10 text-blue-600 dark:text-blue-500"/>
-                     <h1 className="text-xl font-bold text-gray-800 dark:text-white">Mistatas</h1>
+            <div>                <div className="mb-10">
+                    <img 
+                        src="https://static.wixstatic.com/media/1831cb_2d8491304a02448cb1751c82852750ff~mv2.png/v1/fill/w_148,h_27,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/Logotipo%20MisTatas%20blanco.png"
+                        alt="Mistatas Logo"
+                        className="h-8 w-auto"
+                    />
                 </div>
                 <nav className="space-y-2">
                     <button onClick={() => setActiveView('dashboard')} className={`flex items-center w-full px-4 py-3 space-x-3 rounded-lg ${activeView === 'dashboard' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
