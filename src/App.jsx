@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, getDocs, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp, setDoc } from 'firebase/firestore';
@@ -152,86 +152,184 @@ const Login = ({ onLoginSuccess }) => {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
-            <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-xl shadow-lg dark:bg-gray-800">                <div className="text-center">
-                    <img 
-                        src="https://static.wixstatic.com/media/1831cb_2d8491304a02448cb1751c82852750ff~mv2.png/v1/fill/w_148,h_27,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/Logotipo%20MisTatas%20blanco.png"
-                        alt="Mistatas Logo"
-                        className="h-8 w-auto mx-auto mb-4"
-                    />
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Sistema de Inventario</h1>
-                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Gestión inteligente de dispositivos</p>
-                </div>
-                <form className="space-y-6" onSubmit={handleLogin}>
-                    <div>
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
-                        <input
-                            type="email"
-                            required
-                            className="w-full px-3 py-2 mt-1 text-gray-900 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                            placeholder="usuario@mistatas.com"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+        <div className="flex items-center justify-center min-h-screen p-4 bg-gray-100 dark:bg-gray-900">
+            <div className="w-full max-w-md mx-auto">
+                <div className="p-4 sm:p-8 space-y-6 sm:space-y-8 bg-white rounded-xl shadow-lg dark:bg-gray-800">
+                    <div className="text-center">
+                        <img 
+                            src="https://static.wixstatic.com/media/1831cb_2d8491304a02448cb1751c82852750ff~mv2.png/v1/fill/w_148,h_27,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/Logotipo%20MisTatas%20blanco.png"
+                            alt="Mistatas Logo"
+                            className="h-6 sm:h-8 w-auto mx-auto mb-3 sm:mb-4"
                         />
+                        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Sistema de Inventario</h1>
+                        <p className="mt-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">Gestión inteligente de dispositivos</p>
                     </div>
-                    <div>
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Contraseña</label>
-                        <input
-                            type="password"
-                            required
-                            className="w-full px-3 py-2 mt-1 text-gray-900 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                            placeholder="••••••••"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                        />
+                    <form className="space-y-4 sm:space-y-6" onSubmit={handleLogin}>
+                        <div>
+                            <label className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                            <input
+                                type="email"
+                                required
+                                className="w-full px-3 py-2 mt-1 text-sm sm:text-base text-gray-900 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                                placeholder="usuario@mistatas.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">Contraseña</label>
+                            <input
+                                type="password"
+                                required
+                                className="w-full px-3 py-2 mt-1 text-sm sm:text-base text-gray-900 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                                placeholder="••••••••"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                            />
+                        </div>
+                        {error && <p className="text-xs sm:text-sm text-center text-red-500">{error}</p>}
+                        <button
+                            type="submit"
+                            disabled={isLoading}
+                            className="w-full py-2.5 sm:py-3 text-sm sm:text-base font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                        >
+                            {isLoading ? 'Ingresando...' : 'Ingresar'}
+                        </button>
+                    </form>
+                    <div className="text-center">
+                        <button
+                            onClick={handleDemoLogin}
+                            disabled={isLoading}
+                            className="w-full py-2 text-sm sm:text-base font-semibold text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
+                        >
+                            Entrar como Invitado
+                        </button>
+                        <p className="mt-2 text-2xs sm:text-xs text-gray-500 dark:text-gray-400">Usa "test@mistatas.com" y "123456" para ingresar.</p>
                     </div>
-                    {error && <p className="text-sm text-center text-red-500">{error}</p>}
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        className="w-full py-3 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                    >
-                        {isLoading ? 'Ingresando...' : 'Ingresar'}
-                    </button>
-                </form>
-                 <div className="text-center">
-                    <button
-                        onClick={handleDemoLogin}
-                        disabled={isLoading}
-                        className="w-full py-2 mt-2 font-semibold text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
-                    >
-                        Entrar como Invitado
-                    </button>
-                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Usa "test@mistatas.com" y "123456" para ingresar.</p>
                 </div>
             </div>
         </div>
     );
 };
 
-const DashboardCard = ({ title, value, icon, color }) => {
+const DashboardCard = ({ title, value, icon, color, items = [], showDetails = false }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const modalRef = useRef(null);
+
     const colorClasses = {
         green: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',
         yellow: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300',
         red: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300',
         blue: 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
     };
+
+    const handleCardClick = () => {
+        if (showDetails && items.length > 0) {
+            setIsOpen(true);
+        }
+    };
+
     return (
-        <div className={`p-6 rounded-xl shadow-md flex items-center space-x-4 ${colorClasses[color]}`}>
-            {icon}
-            <div>
-                <p className="text-sm font-medium">{title}</p>
-                <p className="text-2xl font-bold">{value}</p>
+        <>
+            <div 
+                onClick={handleCardClick}
+                className={`p-4 sm:p-6 rounded-xl shadow-md flex items-center space-x-3 sm:space-x-4 ${colorClasses[color]} 
+                    ${showDetails && items.length > 0 ? 'cursor-pointer transform transition-transform hover:scale-105 hover:shadow-lg' : ''}`}
+            >
+                <div className="flex-shrink-0">
+                    {React.cloneElement(icon, { className: "w-8 h-8 sm:w-10 sm:h-10" })}
+                </div>
+                <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm font-medium truncate">{title}</p>
+                    <p className="text-xl sm:text-2xl font-bold">{value}</p>
+                    {showDetails && items.length > 0 && (
+                        <p className="text-xs mt-1 opacity-75">Click para ver detalles</p>
+                    )}
+                </div>
             </div>
-        </div>
+
+            {/* Modal con animación */}
+            {isOpen && (
+                <div 
+                    className="fixed inset-0 z-50 overflow-y-auto"
+                    aria-labelledby="modal-title"
+                    role="dialog"
+                    aria-modal="true"
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) setIsOpen(false);
+                    }}
+                >
+                    <div className="flex items-end sm:items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                        <div 
+                            className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+                            aria-hidden="true"
+                        ></div>
+
+                        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+                        <div 
+                            ref={modalRef}
+                            className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6
+                                animate-in fade-in zoom-in-95 duration-300"
+                        >
+                            <div className="absolute top-0 right-0 pt-4 pr-4">
+                                <button
+                                    type="button"
+                                    className="bg-white dark:bg-gray-800 rounded-md text-gray-400 hover:text-gray-500 focus:outline-none"
+                                    onClick={() => setIsOpen(false)}
+                                >
+                                    <span className="sr-only">Cerrar</span>
+                                    <X className="h-6 w-6" />
+                                </button>
+                            </div>
+
+                            <div className="mt-3 text-center sm:mt-0 sm:text-left">
+                                <h3 
+                                    className="text-lg leading-6 font-medium text-gray-900 dark:text-white"
+                                    id="modal-title"
+                                >
+                                    {title}
+                                </h3>
+                                <div className="mt-4 max-h-[60vh] overflow-y-auto">
+                                    <div className="space-y-3">
+                                        {items.map((item, index) => (
+                                            <div 
+                                                key={item.id || index}
+                                                className={`p-4 rounded-lg ${colorClasses[color]} bg-opacity-50 
+                                                    animate-in slide-in-from-bottom-5 duration-300
+                                                    ${index > 0 ? 'fade-in' : ''}`}
+                                                style={{ animationDelay: `${index * 50}ms` }}
+                                            >
+                                                <div className="flex justify-between items-center">
+                                                    <div>
+                                                        <h4 className="font-semibold">{item.name}</h4>
+                                                        <p className="text-sm opacity-75">Código: {item.code}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-lg font-bold">{item.quantity}</p>
+                                                        <p className="text-xs opacity-75">Umbral: {item.criticalThreshold}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 };
 
 const Dashboard = ({ items, onNavigate }) => {
     const summary = useMemo(() => {
         const totalItems = items.length;
-        const lowStock = items.filter(item => item.quantity > item.criticalThreshold && item.quantity <= item.criticalThreshold * 1.5).length;
-        const criticalStock = items.filter(item => item.quantity <= item.criticalThreshold).length;
+        const lowStockItems = items.filter(item => item.quantity > item.criticalThreshold && item.quantity <= item.criticalThreshold * 1.5);
+        const criticalStockItems = items.filter(item => item.quantity <= item.criticalThreshold);
+        const lowStock = lowStockItems.length;
+        const criticalStock = criticalStockItems.length;
         const sufficientStock = totalItems - lowStock - criticalStock;
 
         // Obtener información de dispositivos fundamentales
@@ -244,8 +342,10 @@ const Dashboard = ({ items, onNavigate }) => {
 
         return { 
             totalItems, 
-            lowStock, 
-            criticalStock, 
+            lowStock,
+            lowStockItems,
+            criticalStock,
+            criticalStockItems,
             sufficientStock,
             terminalesInteligentes,
             gpsTotal
@@ -259,44 +359,71 @@ const Dashboard = ({ items, onNavigate }) => {
     };
 
     return (
-        <div className="p-6 space-y-6">
-            <h2 className="text-3xl font-bold text-gray-800 dark:text-white">Dashboard</h2>
+        <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-white">Dashboard</h2>
             
             {/* Dispositivos Fundamentales */}
-            <div className="p-4 bg-white rounded-xl shadow-md dark:bg-gray-800">
-                <h3 className="mb-4 text-xl font-semibold text-gray-800 dark:text-white">Dispositivos Fundamentales</h3>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="p-3 sm:p-4 bg-white rounded-xl shadow-md dark:bg-gray-800">
+                <h3 className="mb-3 sm:mb-4 text-lg sm:text-xl font-semibold text-gray-800 dark:text-white">Dispositivos Fundamentales</h3>
+                <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2">
                     <DashboardCard 
                         title="Terminales Inteligentes" 
                         value={summary.terminalesInteligentes.quantity} 
-                        icon={<Box className="w-10 h-10" />} 
+                        icon={<Box />} 
                         color={getStatusColor(summary.terminalesInteligentes)}
                     />
                     <DashboardCard 
                         title="GPS (Total)" 
                         value={summary.gpsTotal.quantity} 
-                        icon={<Box className="w-10 h-10" />} 
+                        icon={<Box />} 
                         color={getStatusColor(summary.gpsTotal)}
                     />
                 </div>
             </div>
 
             {/* Resumen General */}
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                <DashboardCard title="Stock Suficiente" value={summary.sufficientStock} icon={<CheckCircle className="w-10 h-10" />} color="green" />
-                <DashboardCard title="Stock Bajo" value={summary.lowStock} icon={<AlertTriangle className="w-10 h-10" />} color="yellow" />
-                <DashboardCard title="Stock Crítico" value={summary.criticalStock} icon={<AlertTriangle className="w-10 h-10" />} color="red" />
-                <DashboardCard title="Total de Ítems" value={summary.totalItems} icon={<Box className="w-10 h-10" />} color="blue" />
+            <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
+                <DashboardCard 
+                    title="Stock Suficiente" 
+                    value={summary.sufficientStock} 
+                    icon={<CheckCircle />} 
+                    color="green" 
+                />
+                <DashboardCard 
+                    title="Stock Bajo" 
+                    value={summary.lowStock} 
+                    icon={<AlertTriangle />} 
+                    color="yellow"
+                    items={summary.lowStockItems}
+                    showDetails={true}
+                />
+                <DashboardCard 
+                    title="Stock Crítico" 
+                    value={summary.criticalStock} 
+                    icon={<AlertTriangle />} 
+                    color="red"
+                    items={summary.criticalStockItems}
+                    showDetails={true}
+                />
+                <DashboardCard 
+                    title="Total Ítems" 
+                    value={summary.totalItems} 
+                    icon={<Box />} 
+                    color="blue" 
+                />
             </div>
-             <div className="mt-8">
-                <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300">Accesos Rápidos</h3>
-                <div className="grid grid-cols-1 gap-4 mt-4 md:grid-cols-3">
-                    <button onClick={() => onNavigate('inventory')} className="flex items-center justify-center p-6 space-x-3 text-lg font-semibold text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-blue-500 dark:hover:bg-blue-600">
-                        <Box className="w-6 h-6"/>
+
+            <div className="mt-6 sm:mt-8">
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-700 dark:text-gray-300">Accesos Rápidos</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mt-3 sm:mt-4">
+                    <button onClick={() => onNavigate('inventory')} 
+                            className="flex items-center justify-center p-4 sm:p-6 space-x-2 sm:space-x-3 text-base sm:text-lg font-semibold text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-blue-500 dark:hover:bg-blue-600">
+                        <Box className="w-5 h-5 sm:w-6 sm:h-6"/>
                         <span>Ver Inventario</span>
                     </button>
-                    <button onClick={() => onNavigate('history')} className="flex items-center justify-center p-6 space-x-3 text-lg font-semibold text-gray-700 bg-gray-200 rounded-lg shadow-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
-                        <History className="w-6 h-6"/>
+                    <button onClick={() => onNavigate('history')} 
+                            className="flex items-center justify-center p-4 sm:p-6 space-x-2 sm:space-x-3 text-base sm:text-lg font-semibold text-gray-700 bg-gray-200 rounded-lg shadow-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
+                        <History className="w-5 h-5 sm:w-6 sm:h-6"/>
                         <span>Historial</span>
                     </button>
                 </div>
@@ -484,8 +611,49 @@ const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, ite
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [stockEditModal, setStockEditModal] = useState(null);
+    const [showFilters, setShowFilters] = useState(false);
 
     const itemsPerPage = 10;
+
+    // Función para renderizar los controles de filtro
+    const FilterControls = () => (
+        <div className={`space-y-3 sm:space-y-0 sm:flex sm:items-center sm:space-x-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm ${showFilters ? 'block' : 'hidden sm:flex'}`}>
+            <div className="flex-1">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <input
+                        type="text"
+                        placeholder="Buscar ítem..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    />
+                </div>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+                <select
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value)}
+                    className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                >
+                    <option value="all">Todas las categorías</option>
+                    {categories.map(cat => (
+                        <option key={cat.id} value={cat.name}>{cat.name}</option>
+                    ))}
+                </select>
+                <select
+                    value={filterStock}
+                    onChange={(e) => setFilterStock(e.target.value)}
+                    className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                >
+                    <option value="all">Todo el stock</option>
+                    <option value="critical">Stock crítico</option>
+                    <option value="low">Stock bajo</option>
+                    <option value="sufficient">Stock suficiente</option>
+                </select>
+            </div>
+        </div>
+    );
 
     const filteredAndSortedItems = useMemo(() => {
         let sortedItems = [...items];
@@ -550,84 +718,152 @@ const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, ite
     };
 
     return (
-        <div className="p-6">
-            <h2 className="text-3xl font-bold text-gray-800 dark:text-white">Inventario General</h2>
-            
-            <div className="grid grid-cols-1 gap-4 my-6 md:grid-cols-2 lg:grid-cols-4">
-                <div className="relative">
-                    <Search className="absolute w-5 h-5 text-gray-400 top-3 left-3" />
-                    <input type="text" placeholder="Buscar por nombre o código..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full py-2 pl-10 pr-4 text-gray-900 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"/>
-                </div>
-                 <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className="w-full px-4 py-2 text-gray-900 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600">
-                    <option value="all">Todas las Categorías</option>
-                    {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
-                </select>
-                 <select value={filterStock} onChange={e => setFilterStock(e.target.value)} className="w-full px-4 py-2 text-gray-900 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600">
-                    <option value="all">Todo el Stock</option>
-                    <option value="sufficient">Suficiente</option>
-                    <option value="low">Bajo</option>
-                    <option value="critical">Crítico</option>
-                </select>
-                <button onClick={() => { setEditingItem(null); setIsModalOpen(true); }} className="flex items-center justify-center px-4 py-2 space-x-2 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700">
-                    <PlusCircle className="w-5 h-5" />
-                    <span>Agregar Ítem</span>
-                </button>
-            </div>
-
-            <div className="overflow-x-auto bg-white rounded-lg shadow dark:bg-gray-800">
-                <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                    <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                        <tr>
-                            {['código', 'nombre', 'categoría', 'cantidad', 'umbral crítico', 'estado', 'última mod.', 'acciones'].map(header => {
-                                const key = {
-                                  'código': 'code', 'nombre': 'name', 'categoría': 'category', 'cantidad': 'quantity', 'umbral crítico': 'criticalThreshold', 'estado': 'status', 'última mod.': 'lastModified'
-                                }[header] || '';
-                                return (
-                                    <th key={header} scope="col" className="px-6 py-3 cursor-pointer" onClick={() => key && requestSort(key)}>
-                                        <div className="flex items-center">
-                                            {header} {key && <SortIcon columnKey={key} />}
-                                        </div>
-                                    </th>
-                                )
-                            })}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {paginatedItems.map(item => (
-                            <tr key={item.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                                <td className="px-6 py-4 font-mono text-xs">{item.code}</td>
-                                <th scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{item.name}</th>
-                                <td className="px-6 py-4">{item.category}</td>
-                                <td className="px-6 py-4 font-bold">{item.quantity}</td>
-                                <td className="px-6 py-4">{item.criticalThreshold}</td>
-                                <td className="px-6 py-4">
-                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStockStatus(item).color}`}>{getStockStatus(item).text}</span>
-                                </td>
-                                <td className="px-6 py-4">{item.lastModified ? new Date(item.lastModified.toDate()).toLocaleDateString() : 'N/A'}</td>
-                                <td className="px-6 py-4 space-x-2">
-                                    <button onClick={() => setStockEditModal(item)} className="p-1 text-blue-600 rounded-full hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-gray-700" title="Editar Stock"><Edit className="w-4 h-4"/></button>
-                                    <button onClick={() => { setEditingItem(item); setIsModalOpen(true); }} className="p-1 text-green-600 rounded-full hover:bg-green-100 dark:text-green-400 dark:hover:bg-gray-700" title="Editar Ítem"><PlusCircle className="w-4 h-4"/></button>
-                                    <button onClick={() => window.confirm('¿Seguro que quieres eliminar este ítem?') && onDelete(item.id)} className="p-1 text-red-600 rounded-full hover:bg-red-100 dark:text-red-400 dark:hover:bg-gray-700" title="Eliminar Ítem"><Trash2 className="w-4 h-4"/></button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            <div className="flex items-center justify-between mt-4">
-                 <span className="text-sm text-gray-700 dark:text-gray-400">
-                    Mostrando {paginatedItems.length} de {filteredAndSortedItems.length} ítems
-                </span>
-                <div className="flex space-x-1">
-                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600">Anterior</button>
-                    <span className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300">Página {currentPage} de {totalPages}</span>
-                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600">Siguiente</button>
+        <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Inventario</h2>
+                <div className="flex items-center space-x-2 w-full sm:w-auto">
+                    <button
+                        onClick={() => setShowFilters(!showFilters)}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white rounded-md border shadow-sm hover:bg-gray-50 sm:hidden dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                    >
+                        {showFilters ? 'Ocultar filtros' : 'Mostrar filtros'}
+                    </button>
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="flex-1 sm:flex-none px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                        <span className="flex items-center justify-center">
+                            <PlusCircle className="w-5 h-5 mr-2" />
+                            Agregar Ítem
+                        </span>
+                    </button>
                 </div>
             </div>
 
-            {isModalOpen && <ItemModal item={editingItem} categories={categories} onSave={onSave} onClose={() => setIsModalOpen(false)} itemsCount={itemsCount} />}
-            {stockEditModal && <EditStockModal item={stockEditModal} onSave={onUpdateStock} onClose={() => setStockEditModal(null)} />}
+            <FilterControls />
+
+            <div className="overflow-x-auto">
+                <div className="inline-block min-w-full align-middle">
+                    <div className="overflow-hidden border border-gray-200 rounded-lg dark:border-gray-700">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <thead className="bg-gray-50 dark:bg-gray-800">
+                                <tr>
+                                    {['Código', 'Nombre', 'Categoría', 'Cantidad', 'Acciones'].map((header, index) => (
+                                        <th
+                                            key={index}
+                                            className={`px-3 py-3.5 text-left text-xs font-semibold text-gray-900 dark:text-gray-300 ${
+                                                index === 0 ? 'hidden sm:table-cell' : ''
+                                            }`}
+                                        >
+                                            {header}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+                                {paginatedItems.map(item => (
+                                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                        <td className="hidden sm:table-cell px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                                            {item.code}
+                                        </td>
+                                        <td className="px-3 py-4">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium text-gray-900 dark:text-white">{item.name}</span>
+                                                <span className="text-xs text-gray-500 dark:text-gray-400 sm:hidden">
+                                                    {item.code} - {item.category}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="hidden sm:table-cell px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                                            {item.category}
+                                        </td>
+                                        <td className="px-3 py-4">
+                                            <div className="flex items-center">
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                    getStockStatus(item).color
+                                                }`}>
+                                                    {item.quantity}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                                            <div className="flex items-center space-x-2">
+                                                <button
+                                                    onClick={() => setStockEditModal(item)}
+                                                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                                >
+                                                    <Edit className="w-5 h-5" />
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingItem(item);
+                                                        setIsModalOpen(true);
+                                                    }}
+                                                    className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
+                                                >
+                                                    <PlusCircle className="w-5 h-5" />
+                                                </button>
+                                                <button
+                                                    onClick={() => onDelete(item.id)}
+                                                    className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                                >
+                                                    <Trash2 className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            {/* Paginación */}
+            <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6 dark:bg-gray-800 dark:border-gray-700">
+                <div className="flex justify-between w-full">
+                    <div className="text-sm text-gray-700 dark:text-gray-300">
+                        Mostrando <span className="font-medium">{((currentPage - 1) * itemsPerPage) + 1}</span> a <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredAndSortedItems.length)}</span> de <span className="font-medium">{filteredAndSortedItems.length}</span> resultados
+                    </div>
+                    <div className="flex space-x-2">
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={currentPage === 1}
+                            className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                        >
+                            Anterior
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                            disabled={currentPage === totalPages}
+                            className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                        >
+                            Siguiente
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {isModalOpen && (
+                <ItemModal
+                    item={editingItem}
+                    categories={categories}
+                    onSave={onSave}
+                    onClose={() => {
+                        setIsModalOpen(false);
+                        setEditingItem(null);
+                    }}
+                    itemsCount={itemsCount}
+                />
+            )}
+
+            {stockEditModal && (
+                <EditStockModal
+                    item={stockEditModal}
+                    onSave={onUpdateStock}
+                    onClose={() => setStockEditModal(null)}
+                />
+            )}
         </div>
     );
 };

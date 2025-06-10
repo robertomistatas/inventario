@@ -1,3 +1,91 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Mejoras para inputs en móviles */
+  input, 
+  select, 
+  textarea {
+    font-size: 16px !important; /* Previene el zoom automático en iOS */
+  }
+
+  /* Mejoras para botones táctiles */
+  button, 
+  [role="button"] {
+    touch-action: manipulation;
+  }
+}
+
+@layer components {
+  .container-mobile {
+    @apply px-4 mx-auto w-full;
+  }
+  
+  .input-mobile {
+    @apply w-full px-3 py-2 text-sm sm:text-base;
+  }
+  
+  .button-mobile {
+    @apply w-full py-2 sm:py-3 text-sm sm:text-base font-semibold;
+  }
+}
+
+/* Ajustes para scroll suave */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Estilos globales para mejorar la experiencia móvil */
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply text-base antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Mejoras para inputs en móviles */
+  input, 
+  select, 
+  textarea {
+    @apply text-base;
+    font-size: 16px !important; /* Previene el zoom automático en iOS */
+  }
+
+  /* Mejoras para botones táctiles */
+  button, 
+  [role="button"] {
+    @apply select-none;
+    touch-action: manipulation;
+  }
+}
+
+/* Media queries para ajustes específicos en móviles */
+@media (max-width: 640px) {
+  .container {
+    @apply px-4;
+  }
+}
+
+/* Ajustes para scroll suave */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
