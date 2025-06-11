@@ -204,9 +204,17 @@ const Login = ({ onLoginSuccess }) => {
                         >
                             Entrar como Invitado
                         </button>
-                        <p className="mt-2 text-2xs sm:text-xs text-gray-500 dark:text-gray-400">Usa "test@mistatas.com" y "123456" para ingresar.</p>
-                    </div>
+                        <p className="mt-2 text-2xs sm:text-xs text-gray-500 dark:text-gray-400">Usa "test@mistatas.com" y "123456" para ingresar.</p>                    </div>
                 </div>
+                        ))}
+                    </ul>
+                </div>
+            )): (
+                <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                    No hay registros para el período seleccionado
+                </div>
+            )}
+            </div>
             </div>
         </div>
     );
@@ -522,6 +530,7 @@ const ItemModal = ({ item, categories, onSave, onClose, itemsCount }) => {
 const EditStockModal = ({ item, onSave, onClose }) => {
     const [change, setChange] = useState(0);
     const [movementType, setMovementType] = useState('salida');
+    const [motivo, setMotivo] = useState('');
 
     const handleSave = () => {
         const newQuantity = movementType === 'salida' 
@@ -532,8 +541,13 @@ const EditStockModal = ({ item, onSave, onClose }) => {
             alert("La cantidad no puede ser negativa.");
             return;
         }
+
+        if (movementType === 'salida' && !motivo.trim()) {
+            alert("Por favor, ingrese el motivo del retiro.");
+            return;
+        }
         
-        onSave(item.id, newQuantity, movementType, change);
+        onSave(item.id, newQuantity, movementType, change, motivo);
         onClose();
     };
 
@@ -549,13 +563,24 @@ const EditStockModal = ({ item, onSave, onClose }) => {
                             <option value="salida">Salida</option>
                             <option value="entrada">Entrada</option>
                         </select>
-                    </div>
-                    <div>
+                    </div>                    <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Cantidad a modificar</label>
                         <input type="number" value={change} onChange={(e) => setChange(Math.abs(parseInt(e.target.value) || 0))} min="0" className="w-full px-3 py-2 mt-1 text-gray-900 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600" />
                     </div>
+                    {movementType === 'salida' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Motivo del retiro</label>
+                            <textarea 
+                                value={motivo} 
+                                onChange={(e) => setMotivo(e.target.value)}
+                                placeholder="Ejemplo: Instalación en Ñuñoa"
+                                className="w-full px-3 py-2 mt-1 text-gray-900 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                                rows="2"
+                            />
+                        </div>
+                    )}
                 </div>
-                 <div className="flex justify-end pt-4 mt-4 space-x-3 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex justify-end pt-4 mt-4 space-x-3 border-t border-gray-200 dark:border-gray-700">
                     <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Cancelar</button>
                     <button onClick={handleSave} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">Actualizar Stock</button>
                 </div>
@@ -874,10 +899,87 @@ const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, ite
 
 
 const HistoryLog = ({ history }) => {
-    const sortedHistory = useMemo(() => {
-        return [...history].sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
-    }, [history]);
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [filterType, setFilterType] = useState('all'); // all, day, week, month, semester, custom
 
+    const filteredAndSortedHistory = useMemo(() => {
+        let filtered = [...history];
+
+        // Aplicar filtros de fecha
+        if (startDate || endDate) {
+            filtered = filtered.filter(log => {
+                const logDate = log.timestamp.toDate();
+                let start = startDate ? new Date(startDate) : new Date(0);
+                let end = endDate ? new Date(endDate) : new Date();
+                end.setHours(23, 59, 59, 999); // Incluir todo el día final
+                return logDate >= start && logDate <= end;
+            });
+        } else {
+            // Filtros predefinidos
+            const now = new Date();
+            switch (filterType) {
+                case 'day':
+                    filtered = filtered.filter(log => {
+                        const logDate = log.timestamp.toDate();
+                        return logDate.toDateString() === now.toDateString();
+                    });
+                    break;
+                case 'week':
+                    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    filtered = filtered.filter(log => log.timestamp.toDate() >= weekAgo);
+                    break;
+                case 'month':
+                    const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+                    filtered = filtered.filter(log => log.timestamp.toDate() >= monthAgo);
+                    break;
+                case 'semester':
+                    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+                    filtered = filtered.filter(log => log.timestamp.toDate() >= sixMonthsAgo);
+                    break;
+            }
+        }
+
+        return filtered.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
+    }, [history, startDate, endDate, filterType]);
+
+    const handleFilterChange = (type) => {
+        setFilterType(type);
+        setStartDate('');
+        setEndDate('');
+    };
+
+    const groupByDate = (logs) => {
+        const groups = {};
+        logs.forEach(log => {
+            const date = log.timestamp.toDate().toLocaleDateString();
+            if (!groups[date]) {
+                groups[date] = {
+                    logs: [],
+                    summary: {}
+                };
+            }
+            groups[date].logs.push(log);
+            
+            // Crear resumen diario
+            if (log.type === 'salida' || log.type === 'entrada') {
+                if (!groups[date].summary[log.itemName]) {
+                    groups[date].summary[log.itemName] = {
+                        entradas: 0,
+                        salidas: 0
+                    };
+                }
+                if (log.type === 'entrada') {
+                    groups[date].summary[log.itemName].entradas += log.quantityChanged;
+                } else {
+                    groups[date].summary[log.itemName].salidas += log.quantityChanged;
+                }
+            }
+        });
+        return groups;
+    };
+
+    const groupedHistory = groupByDate(filteredAndSortedHistory);
     const getMovementStyle = (type) => {
         if (type === 'entrada') {
             return { text: 'Entrada', color: 'text-green-600 dark:text-green-400', symbol: '+' };
@@ -889,35 +991,148 @@ const HistoryLog = ({ history }) => {
     };
 
     return (
-        <div className="p-6">
-            <h2 className="text-3xl font-bold text-gray-800 dark:text-white">Historial de Movimientos</h2>
-            <div className="mt-6 bg-white rounded-lg shadow dark:bg-gray-800">
-                <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {sortedHistory.map(log => {
-                        const style = getMovementStyle(log.type);
-                        return (
-                            <li key={log.id} className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
-                                <div className="flex items-center space-x-4">
-                                    <div className={`flex items-center justify-center w-8 h-8 rounded-full ${style.color.replace('text', 'bg').replace('-600', '-100').replace('-400', '-900/50')}`}>
-                                        <span className={`font-bold ${style.color}`}>{style.symbol}</span>
-                                    </div>
-                                    <div>
-                                        <p className="font-semibold text-gray-800 dark:text-white">{log.itemName}</p>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                                            Usuario: <span className="font-medium text-gray-700 dark:text-gray-300">{log.userEmail}</span>
-                                        </p>
+        <div className="p-4 sm:p-6">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-white">Historial de Movimientos</h2>
+            
+            <div className="mt-4 sm:mt-6 space-y-4">
+                {/* Filtros */}
+                <div className="bg-white rounded-lg shadow p-4 dark:bg-gray-800">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
+                        <button
+                            onClick={() => handleFilterChange('all')}
+                            className={`px-3 py-2 rounded-md text-sm font-medium ${
+                                filterType === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                            }`}
+                        >
+                            Todo
+                        </button>
+                        <button
+                            onClick={() => handleFilterChange('day')}
+                            className={`px-3 py-2 rounded-md text-sm font-medium ${
+                                filterType === 'day' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                            }`}
+                        >
+                            Hoy
+                        </button>
+                        <button
+                            onClick={() => handleFilterChange('week')}
+                            className={`px-3 py-2 rounded-md text-sm font-medium ${
+                                filterType === 'week' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                            }`}
+                        >
+                            Última semana
+                        </button>
+                        <button
+                            onClick={() => handleFilterChange('month')}
+                            className={`px-3 py-2 rounded-md text-sm font-medium ${
+                                filterType === 'month' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                            }`}
+                        >
+                            Último mes
+                        </button>
+                        <button
+                            onClick={() => handleFilterChange('semester')}
+                            className={`px-3 py-2 rounded-md text-sm font-medium ${
+                                filterType === 'semester' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                            }`}
+                        >
+                            Último semestre
+                        </button>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Fecha inicial
+                            </label>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => {
+                                    setStartDate(e.target.value);
+                                    setFilterType('custom');
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Fecha final
+                            </label>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => {
+                                    setEndDate(e.target.value);
+                                    setFilterType('custom');
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Lista de movimientos */}
+                <div className="bg-white rounded-lg shadow dark:bg-gray-800">
+                    {Object.entries(groupedHistory).length > 0 ? (
+                        Object.entries(groupedHistory).map(([date, data]) => (
+                            <div key={date} className="border-b border-gray-200 dark:border-gray-700 last:border-0">
+                                <div className="p-4 bg-gray-50 dark:bg-gray-700">
+                                    <h3 className="font-semibold text-gray-900 dark:text-white">{date}</h3>
+                                    {/* Resumen diario */}
+                                    <div className="mt-2 space-y-1">
+                                        {Object.entries(data.summary).map(([itemName, counts]) => (
+                                            <p key={itemName} className="text-sm text-gray-600 dark:text-gray-400">
+                                                {itemName}: {counts.salidas > 0 && `${counts.salidas} salidas`}
+                                                {counts.entradas > 0 && counts.salidas > 0 && ', '}
+                                                {counts.entradas > 0 && `${counts.entradas} entradas`}
+                                            </p>
+                                        ))}
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className={`font-semibold ${style.color}`}>
-                                      {style.text} {log.type === 'entrada' || log.type === 'salida' ? `de ${log.quantityChanged}` : ''}
-                                    </p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(log.timestamp.toDate()).toLocaleString()}</p>
-                                </div>
-                            </li>
-                        )
-                    })}
-                </ul>
+                                <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                                    {data.logs.map(log => {
+                                        const style = getMovementStyle(log.type);
+                                        return (
+                                            <li key={log.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                                                    <div className="flex items-start space-x-4">
+                                                        <div className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full ${style.color.replace('text', 'bg').replace('-600', '-100').replace('-400', '-900/50')}`}>
+                                                            <span className={`font-bold ${style.color}`}>{style.symbol}</span>
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="font-semibold text-gray-800 dark:text-white">{log.itemName}</p>
+                                                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                                                Usuario: <span className="font-medium text-gray-700 dark:text-gray-300">{log.userEmail}</span>
+                                                            </p>
+                                                            {log.type === 'salida' && log.motivo && (
+                                                                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                                                                    Motivo: {log.motivo}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="mt-2 sm:mt-0 text-right">
+                                                        <p className={`font-semibold ${style.color}`}>
+                                                            {style.text} {log.type === 'entrada' || log.type === 'salida' ? `de ${log.quantityChanged}` : ''}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                            {new Date(log.timestamp.toDate()).toLocaleTimeString()}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                            No hay registros para el período seleccionado
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
@@ -1020,8 +1235,7 @@ export default function App() {
     const handleDeleteItem = async (itemId) => {
         await deleteDoc(doc(db, 'items', itemId));
     };
-    
-    const handleUpdateStock = async (itemId, newQuantity, movementType, quantityChanged) => {
+      const handleUpdateStock = async (itemId, newQuantity, movementType, quantityChanged, motivo = '') => {
         const itemRef = doc(db, 'items', itemId);
         const item = items.find(i => i.id === itemId);
         
@@ -1036,7 +1250,9 @@ export default function App() {
             type: movementType,
             quantityChanged: quantityChanged,
             userEmail: user.email,
-            timestamp: serverTimestamp()
+            timestamp: serverTimestamp(),
+            motivo: motivo,
+            fecha: new Date().toLocaleDateString()
         };
         await addDoc(collection(db, "history"), historyData);
     };
