@@ -206,15 +206,6 @@ const Login = ({ onLoginSuccess }) => {
                         </button>
                         <p className="mt-2 text-2xs sm:text-xs text-gray-500 dark:text-gray-400">Usa "test@mistatas.com" y "123456" para ingresar.</p>                    </div>
                 </div>
-                        ))}
-                    </ul>
-                </div>
-            )): (
-                <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                    No hay registros para el período seleccionado
-                </div>
-            )}
-            </div>
             </div>
         </div>
     );
@@ -543,7 +534,12 @@ const EditStockModal = ({ item, onSave, onClose }) => {
         }
 
         if (movementType === 'salida' && !motivo.trim()) {
-            alert("Por favor, ingrese el motivo del retiro.");
+            alert("Por favor, ingrese el motivo del retiro. Este campo es obligatorio para todas las salidas de inventario.");
+            return;
+        }
+        
+        if (change <= 0) {
+            alert("La cantidad debe ser mayor a 0.");
             return;
         }
         
@@ -789,7 +785,7 @@ const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, ite
                                     ))}
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+                            <tbody className="bg-white divide-y divide-gray-200 dark:divide-gray-700">
                                 {paginatedItems.map(item => (
                                     <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                                         <td className="hidden sm:table-cell px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
@@ -947,47 +943,122 @@ const HistoryLog = ({ history }) => {
         setFilterType(type);
         setStartDate('');
         setEndDate('');
-    };
-
-    const groupByDate = (logs) => {
+    };    const groupByDate = (logs) => {
         const groups = {};
         logs.forEach(log => {
             const date = log.timestamp.toDate().toLocaleDateString();
             if (!groups[date]) {
                 groups[date] = {
                     logs: [],
-                    summary: {}
+                    summary: {},
+                    stats: {
+                        totalMovements: 0,
+                        entradas: 0,
+                        salidas: 0,
+                        categorias: new Set(),
+                        itemsUnicos: new Set()
+                    }
                 };
             }
             groups[date].logs.push(log);
+            
+            // Actualizar estadísticas
+            groups[date].stats.totalMovements++;
+            if (log.category) groups[date].stats.categorias.add(log.category);
+            groups[date].stats.itemsUnicos.add(log.itemName);
             
             // Crear resumen diario
             if (log.type === 'salida' || log.type === 'entrada') {
                 if (!groups[date].summary[log.itemName]) {
                     groups[date].summary[log.itemName] = {
                         entradas: 0,
-                        salidas: 0
+                        salidas: 0,
+                        categoria: log.category,
+                        detalles: []
                     };
                 }
+                
+                const movimiento = {
+                    hora: log.hora || log.timestamp.toDate().toLocaleTimeString(),
+                    cantidad: log.quantityChanged,
+                    tipo: log.type,
+                    motivo: log.motivo,
+                    usuario: log.userEmail
+                };
+                
+                groups[date].summary[log.itemName].detalles.push(movimiento);
+                
                 if (log.type === 'entrada') {
                     groups[date].summary[log.itemName].entradas += log.quantityChanged;
+                    groups[date].stats.entradas += log.quantityChanged;
                 } else {
                     groups[date].summary[log.itemName].salidas += log.quantityChanged;
+                    groups[date].stats.salidas += log.quantityChanged;
                 }
             }
         });
+
+        // Convertir Sets a números para cada grupo
+        Object.keys(groups).forEach(date => {
+            groups[date].stats.categorias = groups[date].stats.categorias.size;
+            groups[date].stats.itemsUnicos = groups[date].stats.itemsUnicos.size;
+        });
+        
         return groups;
     };
 
     const groupedHistory = groupByDate(filteredAndSortedHistory);
     const getMovementStyle = (type) => {
         if (type === 'entrada') {
-            return { text: 'Entrada', color: 'text-green-600 dark:text-green-400', symbol: '+' };
+            return { text: 'Entrada', color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-100 dark:bg-green-900/50', symbol: '+' };
         }
         if (type === 'salida') {
-            return { text: 'Salida', color: 'text-red-600 dark:text-red-400', symbol: '-' };
+            return { text: 'Salida', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-100 dark:bg-red-900/50', symbol: '-' };
         }
-        return { text: type.charAt(0).toUpperCase() + type.slice(1), color: 'text-gray-600 dark:text-gray-400', symbol: '•' };
+        return { text: type.charAt(0).toUpperCase() + type.slice(1), color: 'text-gray-600 dark:text-gray-400', bgColor: 'bg-gray-100 dark:bg-gray-800', symbol: '•' };
+    };
+
+    // Calcula estadísticas para el resumen
+    const calculateStats = (logs) => {
+        const stats = {
+            totalMovements: logs.length,
+            totalEntradas: 0,
+            totalSalidas: 0,
+            itemsMovidos: new Set(),
+            categorias: new Set(),
+            totalPorCategoria: {},
+        };
+
+        logs.forEach(log => {
+            stats.itemsMovidos.add(log.itemName);
+            if (log.category) stats.categorias.add(log.category);
+            
+            if (log.type === 'entrada') {
+                stats.totalEntradas += log.quantityChanged;
+            } else if (log.type === 'salida') {
+                stats.totalSalidas += log.quantityChanged;
+            }
+
+            if (log.category) {
+                if (!stats.totalPorCategoria[log.category]) {
+                    stats.totalPorCategoria[log.category] = {
+                        entradas: 0,
+                        salidas: 0
+                    };
+                }
+                if (log.type === 'entrada') {
+                    stats.totalPorCategoria[log.category].entradas += log.quantityChanged;
+                } else if (log.type === 'salida') {
+                    stats.totalPorCategoria[log.category].salidas += log.quantityChanged;
+                }
+            }
+        });
+
+        return {
+            ...stats,
+            itemsMovidos: stats.itemsMovidos.size,
+            categorias: stats.categorias.size,
+        };
     };
 
     return (
@@ -995,7 +1066,6 @@ const HistoryLog = ({ history }) => {
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-white">Historial de Movimientos</h2>
             
             <div className="mt-4 sm:mt-6 space-y-4">
-                {/* Filtros */}
                 <div className="bg-white rounded-lg shadow p-4 dark:bg-gray-800">
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
                         <button
@@ -1070,68 +1140,120 @@ const HistoryLog = ({ history }) => {
                             />
                         </div>
                     </div>
-                </div>
+                </div>                <div className="space-y-6">
+                    {/* Resumen del período seleccionado */}
+                    {filteredAndSortedHistory.length > 0 && (
+                        <div className="bg-white rounded-lg shadow dark:bg-gray-800 p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                                Resumen del Período
+                            </h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                {(() => {
+                                    const stats = calculateStats(filteredAndSortedHistory);
+                                    return (
+                                        <>
+                                            <div className="p-4 rounded-lg bg-blue-100 dark:bg-blue-900/50">
+                                                <div className="text-sm text-blue-800 dark:text-blue-300">Total Movimientos</div>
+                                                <div className="text-2xl font-bold text-blue-900 dark:text-blue-200">{stats.totalMovements}</div>
+                                            </div>
+                                            <div className="p-4 rounded-lg bg-green-100 dark:bg-green-900/50">
+                                                <div className="text-sm text-green-800 dark:text-green-300">Total Entradas</div>
+                                                <div className="text-2xl font-bold text-green-900 dark:text-green-200">{stats.totalEntradas}</div>
+                                            </div>
+                                            <div className="p-4 rounded-lg bg-red-100 dark:bg-red-900/50">
+                                                <div className="text-sm text-red-800 dark:text-red-300">Total Salidas</div>
+                                                <div className="text-2xl font-bold text-red-900 dark:text-red-200">{stats.totalSalidas}</div>
+                                            </div>
+                                            <div className="p-4 rounded-lg bg-purple-100 dark:bg-purple-900/50">
+                                                <div className="text-sm text-purple-800 dark:text-purple-300">Ítems Afectados</div>
+                                                <div className="text-2xl font-bold text-purple-900 dark:text-purple-200">{stats.itemsMovidos}</div>
+                                            </div>
+                                        </>
+                                    );
+                                })()}
+                            </div>
+                        </div>
+                    )}
 
-                {/* Lista de movimientos */}
-                <div className="bg-white rounded-lg shadow dark:bg-gray-800">
-                    {Object.entries(groupedHistory).length > 0 ? (
-                        Object.entries(groupedHistory).map(([date, data]) => (
-                            <div key={date} className="border-b border-gray-200 dark:border-gray-700 last:border-0">
-                                <div className="p-4 bg-gray-50 dark:bg-gray-700">
-                                    <h3 className="font-semibold text-gray-900 dark:text-white">{date}</h3>
-                                    {/* Resumen diario */}
-                                    <div className="mt-2 space-y-1">
-                                        {Object.entries(data.summary).map(([itemName, counts]) => (
-                                            <p key={itemName} className="text-sm text-gray-600 dark:text-gray-400">
-                                                {itemName}: {counts.salidas > 0 && `${counts.salidas} salidas`}
-                                                {counts.entradas > 0 && counts.salidas > 0 && ', '}
-                                                {counts.entradas > 0 && `${counts.entradas} entradas`}
-                                            </p>
-                                        ))}
-                                    </div>
-                                </div>
-                                <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                                    {data.logs.map(log => {
-                                        const style = getMovementStyle(log.type);
-                                        return (
-                                            <li key={log.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
-                                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                                                    <div className="flex items-start space-x-4">
-                                                        <div className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full ${style.color.replace('text', 'bg').replace('-600', '-100').replace('-400', '-900/50')}`}>
-                                                            <span className={`font-bold ${style.color}`}>{style.symbol}</span>
-                                                        </div>
-                                                        <div className="min-w-0">
-                                                            <p className="font-semibold text-gray-800 dark:text-white">{log.itemName}</p>
-                                                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                                                Usuario: <span className="font-medium text-gray-700 dark:text-gray-300">{log.userEmail}</span>
+                    {/* Registros diarios */}
+                    <div className="bg-white rounded-lg shadow dark:bg-gray-800">
+                        {Object.entries(groupedHistory).length > 0 ? (
+                            Object.entries(groupedHistory).map(([date, data]) => (
+                                <div key={date} className="border-b border-gray-200 dark:border-gray-700 last:border-0">
+                                    {/* Encabezado del día con resumen */}
+                                    <div className="p-4 bg-gray-50 dark:bg-gray-700">
+                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                                            <h3 className="font-semibold text-gray-900 dark:text-white">{date}</h3>
+                                            <div className="mt-2 sm:mt-0 flex space-x-4 text-sm">
+                                                <span className="text-green-600 dark:text-green-400">
+                                                    Entradas: {data.stats.entradas}
+                                                </span>
+                                                <span className="text-red-600 dark:text-red-400">
+                                                    Salidas: {data.stats.salidas}
+                                                </span>
+                                                <span className="text-gray-600 dark:text-gray-400">
+                                                    Movimientos: {data.stats.totalMovements}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Resumen por categoría e ítem */}
+                                        <div className="mt-3 space-y-2">
+                                            {Object.entries(data.summary).map(([itemName, info]) => (
+                                                <div key={itemName} className="p-3 rounded-lg bg-white dark:bg-gray-800 shadow-sm">
+                                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                                                        <div>
+                                                            <h4 className="font-medium text-gray-900 dark:text-white">{itemName}</h4>
+                                                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                                {info.categoria}
                                                             </p>
-                                                            {log.type === 'salida' && log.motivo && (
-                                                                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                                                                    Motivo: {log.motivo}
-                                                                </p>
+                                                        </div>
+                                                        <div className="mt-2 sm:mt-0 flex space-x-4 text-sm">
+                                                            {info.entradas > 0 && (
+                                                                <span className="text-green-600 dark:text-green-400">
+                                                                    +{info.entradas}
+                                                                </span>
+                                                            )}
+                                                            {info.salidas > 0 && (
+                                                                <span className="text-red-600 dark:text-red-400">
+                                                                    -{info.salidas}
+                                                                </span>
                                                             )}
                                                         </div>
                                                     </div>
-                                                    <div className="mt-2 sm:mt-0 text-right">
-                                                        <p className={`font-semibold ${style.color}`}>
-                                                            {style.text} {log.type === 'entrada' || log.type === 'salida' ? `de ${log.quantityChanged}` : ''}
-                                                        </p>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                            {new Date(log.timestamp.toDate()).toLocaleTimeString()}
-                                                        </p>
+                                                    {/* Detalles de movimientos */}
+                                                    <div className="mt-2 space-y-1">
+                                                        {info.detalles.map((detalle, idx) => (
+                                                            <div key={idx} className="text-sm flex justify-between items-center">
+                                                                <div className="flex items-center space-x-2">
+                                                                    <span className="text-gray-500 dark:text-gray-400">{detalle.hora}</span>
+                                                                    <span className={detalle.tipo === 'entrada' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                                                                        {detalle.tipo === 'entrada' ? '+' : '-'}{detalle.cantidad}
+                                                                    </span>
+                                                                    {detalle.motivo && (
+                                                                        <span className="text-gray-600 dark:text-gray-400">
+                                                                            - {detalle.motivo}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <span className="text-gray-500 dark:text-gray-400 text-xs">
+                                                                    {detalle.usuario}
+                                                                </span>
+                                                            </div>
+                                                        ))}
                                                     </div>
                                                 </div>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                                No hay registros para el período seleccionado
                             </div>
-                        ))
-                    ) : (
-                        <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                            No hay registros para el período seleccionado
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
@@ -1234,8 +1356,7 @@ export default function App() {
 
     const handleDeleteItem = async (itemId) => {
         await deleteDoc(doc(db, 'items', itemId));
-    };
-      const handleUpdateStock = async (itemId, newQuantity, movementType, quantityChanged, motivo = '') => {
+    };      const handleUpdateStock = async (itemId, newQuantity, movementType, quantityChanged, motivo = '') => {
         const itemRef = doc(db, 'items', itemId);
         const item = items.find(i => i.id === itemId);
         
@@ -1244,15 +1365,25 @@ export default function App() {
             lastModified: serverTimestamp()
         });
 
+        const now = new Date();
         const historyData = {
             itemId: itemId,
             itemName: item.name,
+            itemCode: item.code,
+            category: item.category,
             type: movementType,
+            quantityBefore: item.quantity,
+            quantityAfter: newQuantity,
             quantityChanged: quantityChanged,
             userEmail: user.email,
             timestamp: serverTimestamp(),
             motivo: motivo,
-            fecha: new Date().toLocaleDateString()
+            fecha: now.toISOString().split('T')[0], // Formato YYYY-MM-DD para mejor filtrado
+            hora: now.toLocaleTimeString(),
+            year: now.getFullYear(),
+            month: now.getMonth() + 1,
+            day: now.getDate(),
+            weekNumber: Math.ceil((now.getDate() + new Date(now.getFullYear(), now.getMonth(), 1).getDay()) / 7)
         };
         await addDoc(collection(db, "history"), historyData);
     };
