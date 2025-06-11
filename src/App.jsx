@@ -339,16 +339,17 @@ const Dashboard = ({ items, onNavigate }) => {
             quantity: gpsDevices,
             criticalThreshold: 6 // Umbral combinado para GPS
         };
+        const simCards = items.find(item => item.name === "SIMCARDS") || { quantity: 0, criticalThreshold: 50 };
 
         return { 
             totalItems, 
             lowStock,
             lowStockItems,
             criticalStock,
-            criticalStockItems,
-            sufficientStock,
+            criticalStockItems,            sufficientStock,
             terminalesInteligentes,
-            gpsTotal
+            gpsTotal,
+            simCards
         };
     }, [items]);
 
@@ -364,8 +365,7 @@ const Dashboard = ({ items, onNavigate }) => {
             
             {/* Dispositivos Fundamentales */}
             <div className="p-3 sm:p-4 bg-white rounded-xl shadow-md dark:bg-gray-800">
-                <h3 className="mb-3 sm:mb-4 text-lg sm:text-xl font-semibold text-gray-800 dark:text-white">Dispositivos Fundamentales</h3>
-                <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2">
+                <h3 className="mb-3 sm:mb-4 text-lg sm:text-xl font-semibold text-gray-800 dark:text-white">Dispositivos Fundamentales</h3>                <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-3">
                     <DashboardCard 
                         title="Terminales Inteligentes" 
                         value={summary.terminalesInteligentes.quantity} 
@@ -377,6 +377,12 @@ const Dashboard = ({ items, onNavigate }) => {
                         value={summary.gpsTotal.quantity} 
                         icon={<Box />} 
                         color={getStatusColor(summary.gpsTotal)}
+                    />
+                    <DashboardCard 
+                        title="SIMCARDS" 
+                        value={summary.simCards.quantity} 
+                        icon={<Box />} 
+                        color={getStatusColor(summary.simCards)}
                     />
                 </div>
             </div>
