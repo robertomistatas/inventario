@@ -231,17 +231,16 @@ const DashboardCard = ({ title, value, icon, color, items = [], showDetails = fa
 
     return (
         <>
-            <div 
-                onClick={handleCardClick}
-                className={`p-4 sm:p-6 rounded-xl shadow-md flex items-center space-x-3 sm:space-x-4 ${colorClasses[color]} 
+            <div                onClick={handleCardClick}
+                className={`p-3 sm:p-6 rounded-xl shadow-md flex items-center space-x-2 sm:space-x-4 ${colorClasses[color]} 
                     ${showDetails && items.length > 0 ? 'cursor-pointer transform transition-transform hover:scale-105 hover:shadow-lg' : ''}`}
             >
                 <div className="flex-shrink-0">
-                    {React.cloneElement(icon, { className: "w-8 h-8 sm:w-10 sm:h-10" })}
+                    {React.cloneElement(icon, { className: "w-6 h-6 sm:w-10 sm:h-10" })}
                 </div>
                 <div className="min-w-0 flex-1">
                     <p className="text-xs sm:text-sm font-medium truncate">{title}</p>
-                    <p className="text-xl sm:text-2xl font-bold">{value}</p>
+                    <p className="text-lg sm:text-2xl font-bold">{value}</p>
                     {showDetails && items.length > 0 && (
                         <p className="text-xs mt-1 opacity-75">Click para ver detalles</p>
                     )}
@@ -363,9 +362,9 @@ const Dashboard = ({ items, onNavigate }) => {
         <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-white">Dashboard</h2>
             
-            {/* Dispositivos Fundamentales */}
-            <div className="p-3 sm:p-4 bg-white rounded-xl shadow-md dark:bg-gray-800">
-                <h3 className="mb-3 sm:mb-4 text-lg sm:text-xl font-semibold text-gray-800 dark:text-white">Dispositivos Fundamentales</h3>                <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-3">
+            {/* Dispositivos Fundamentales */}            <div className="p-2 sm:p-4 bg-white rounded-xl shadow-md dark:bg-gray-800">
+                <h3 className="mb-2 sm:mb-4 text-base sm:text-xl font-semibold text-gray-800 dark:text-white">Dispositivos Fundamentales</h3>
+                <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
                     <DashboardCard 
                         title="Terminales Inteligentes" 
                         value={summary.terminalesInteligentes.quantity} 
@@ -387,8 +386,7 @@ const Dashboard = ({ items, onNavigate }) => {
                 </div>
             </div>
 
-            {/* Resumen General */}
-            <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
+            {/* Resumen General */}            <div className="grid grid-cols-2 xs:grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-6">
                 <DashboardCard 
                     title="Stock Suficiente" 
                     value={summary.sufficientStock} 
