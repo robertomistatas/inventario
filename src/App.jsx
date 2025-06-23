@@ -641,25 +641,23 @@ const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, ite
     const itemsPerPage = 10;
 
     // Función para renderizar los controles de filtro
-    const FilterControls = () => (
-        <div className={`space-y-3 sm:space-y-0 sm:flex sm:items-center sm:space-x-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm ${showFilters ? 'block' : 'hidden sm:flex'}`}>
+    const FilterControls = () => (        <div className={`space-y-3 sm:space-y-0 sm:flex sm:items-center sm:space-x-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm transition-colors duration-200 ${showFilters ? 'block' : 'hidden sm:flex'}`}>
             <div className="flex-1">
                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
                     <input
                         type="text"
                         placeholder="Buscar ítem..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        className="w-full pl-10 pr-4 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-colors duration-200"
                     />
                 </div>
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
-                <select
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">                <select
                     value={filterCategory}
                     onChange={(e) => setFilterCategory(e.target.value)}
-                    className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white bg-white dark:bg-gray-700 transition-colors duration-200"
                 >
                     <option value="all">Todas las categorías</option>
                     {categories.map(cat => (
@@ -669,7 +667,7 @@ const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, ite
                 <select
                     value={filterStock}
                     onChange={(e) => setFilterStock(e.target.value)}
-                    className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white bg-white dark:bg-gray-700 transition-colors duration-200"
                 >
                     <option value="all">Todo el stock</option>
                     <option value="critical">Stock crítico</option>
@@ -740,10 +738,8 @@ const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, ite
     const SortIcon = ({ columnKey }) => {
         if (sortConfig.key !== columnKey) return null;
         return sortConfig.direction === 'ascending' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />;
-    };
-
-    return (
-        <div className="space-y-4">
+    };    return (
+        <div className="space-y-4 bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Inventario</h2>
                 <div className="flex items-center space-x-2 w-full sm:w-auto">
@@ -765,18 +761,15 @@ const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, ite
                 </div>
             </div>
 
-            <FilterControls />
-
-            <div className="overflow-x-auto">
+            <FilterControls />        <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow-md transition-colors duration-200">
                 <div className="inline-block min-w-full align-middle">
                     <div className="overflow-hidden border border-gray-200 rounded-lg dark:border-gray-700">
-                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                            <thead className="bg-gray-50 dark:bg-gray-800">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800 transition-colors duration-200">                            <thead className="bg-gray-50 dark:bg-gray-700 transition-colors duration-200">
                                 <tr>
                                     {['Código', 'Nombre', 'Categoría', 'Cantidad', 'Acciones'].map((header, index) => (
                                         <th
                                             key={index}
-                                            className={`px-3 py-3.5 text-left text-xs font-semibold text-gray-900 dark:text-gray-300 ${
+                                            className={`px-3 py-3.5 text-left text-xs font-semibold text-gray-900 dark:text-gray-200 ${
                                                 index === 0 ? 'hidden sm:table-cell' : ''
                                             }`}
                                         >
@@ -784,10 +777,9 @@ const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, ite
                                         </th>
                                     ))}
                                 </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200 dark:divide-gray-700">
+                            </thead>                            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700 transition-colors duration-200">
                                 {paginatedItems.map(item => (
-                                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
                                         <td className="hidden sm:table-cell px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
                                             {item.code}
                                         </td>
@@ -1267,7 +1259,14 @@ export default function App() {
     const [categories, setCategories] = useState([]);
     const [history, setHistory] = useState([]);
     const [activeView, setActiveView] = useState('dashboard');
-    const [isDarkMode, setIsDarkMode] = useState(false);
+    const [isDarkMode, setIsDarkMode] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            return savedTheme === 'dark' || (!savedTheme && prefersDark);
+        }
+        return false;
+    });
     
     const [criticalStockItems, setCriticalStockItems] = useState([]);
     const [showCriticalAlert, setShowCriticalAlert] = useState(false);
@@ -1275,16 +1274,24 @@ export default function App() {
     // Función para inicializar datos una sola vez
     const initializeData = useCallback(async () => {
         await seedDatabase();
-    }, []);
-
-    useEffect(() => {
+    }, []);    useEffect(() => {
         initializeData();
         
-        const html = document.querySelector('html');
-        if (isDarkMode) {
-            html.classList.add('dark');
-        } else {
-            html.classList.remove('dark');
+        if (typeof window !== 'undefined') {
+            const root = window.document.documentElement;
+            if (isDarkMode) {
+                root.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                root.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            }
+
+            // Actualizamos el color del tema en meta tags
+            const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+            if (metaThemeColor) {
+                metaThemeColor.setAttribute('content', isDarkMode ? '#1f2937' : '#ffffff');
+            }
         }
     }, [isDarkMode, initializeData]);
     
@@ -1421,10 +1428,16 @@ export default function App() {
                     </button>
                 </nav>
             </div>
-            <div className="space-y-2">
-                 <button onClick={() => setIsDarkMode(!isDarkMode)} className="flex items-center w-full px-4 py-3 space-x-3 text-gray-600 rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                    {isDarkMode ? <Sun className="w-6 h-6"/> : <Moon className="w-6 h-6"/>}
-                    <span>Modo {isDarkMode ? 'Claro' : 'Oscuro'}</span>
+            <div className="space-y-2">                 <button 
+                    onClick={() => setIsDarkMode(!isDarkMode)} 
+                    className="flex items-center w-full px-4 py-3 space-x-3 text-gray-600 rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                    aria-label={`Cambiar a modo ${isDarkMode ? 'claro' : 'oscuro'}`}
+                >
+                    {isDarkMode ? 
+                        <Sun className="w-6 h-6 transition-transform duration-200 rotate-0"/> : 
+                        <Moon className="w-6 h-6 transition-transform duration-200 rotate-0"/>
+                    }
+                    <span className="transition-colors duration-200">Modo {isDarkMode ? 'Claro' : 'Oscuro'}</span>
                 </button>
                 <button onClick={handleLogout} className="flex items-center w-full px-4 py-3 space-x-3 text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30">
                     <LogOut className="w-6 h-6"/>
@@ -1433,16 +1446,17 @@ export default function App() {
             </div>
         </div>
     );
-    
-    return (
-        <div className={`flex h-screen bg-gray-100 dark:bg-gray-900 font-sans ${isDarkMode ? 'dark' : ''}`}>
-           <Sidebar />
-            <main className="flex-1 overflow-y-auto">
-                {activeView === 'dashboard' && <Dashboard items={items} onNavigate={setActiveView} />}
-                {activeView === 'inventory' && <InventoryList items={items} categories={categories} onSave={handleSaveItem} onDelete={handleDeleteItem} onUpdateStock={handleUpdateStock} itemsCount={items.length} />}
-                {activeView === 'history' && <HistoryLog history={history} />}
-            </main>
-            {showCriticalAlert && <CriticalStockAlert items={criticalStockItems} onClose={() => setShowCriticalAlert(false)} />}
+      return (
+        <div className="min-h-screen dark:bg-gray-900 transition-colors duration-200">
+            <div className={`flex h-screen bg-gray-100 dark:bg-gray-900 font-sans`}>
+                <Sidebar />
+                <main className="flex-1 overflow-y-auto bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
+                    {activeView === 'dashboard' && <Dashboard items={items} onNavigate={setActiveView} />}
+                    {activeView === 'inventory' && <InventoryList items={items} categories={categories} onSave={handleSaveItem} onDelete={handleDeleteItem} onUpdateStock={handleUpdateStock} itemsCount={items.length} />}
+                    {activeView === 'history' && <HistoryLog history={history} />}
+                </main>
+                {showCriticalAlert && <CriticalStockAlert items={criticalStockItems} onClose={() => setShowCriticalAlert(false)} />}
+            </div>
         </div>
     );
 }
