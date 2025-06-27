@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, getDocs, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp, setDoc } from 'firebase/firestore';
-import { ChevronDown, ChevronUp, Search, PlusCircle, Edit, Trash2, Box, AlertTriangle, CheckCircle, Package, History, LogOut, Moon, Sun, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Search, PlusCircle, Edit, Trash2, Box, AlertTriangle, CheckCircle, Package, History, LogOut, Moon, Sun, X, Scan } from 'lucide-react';
+import ScannerModule from './components/ScannerModule.jsx';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
 // Configuración actualizada con tus credenciales
@@ -764,7 +765,7 @@ const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, ite
             <FilterControls />        <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow-md transition-colors duration-200">
                 <div className="inline-block min-w-full align-middle">
                     <div className="overflow-hidden border border-gray-200 rounded-lg dark:border-gray-700">
-                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800 transition-colors duration-200">                            <thead className="bg-gray-50 dark:bg-gray-700 transition-colors duration-200">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800 transition-colors duration-200"><thead className="bg-gray-50 dark:bg-gray-700 transition-colors duration-200">
                                 <tr>
                                     {['Código', 'Nombre', 'Categoría', 'Cantidad', 'Acciones'].map((header, index) => (
                                         <th
@@ -1422,6 +1423,10 @@ export default function App() {
                         <Box className="w-6 h-6"/>
                         <span>Inventario</span>
                     </button>
+                    <button onClick={() => setActiveView('scanner')} className={`flex items-center w-full px-4 py-3 space-x-3 rounded-lg ${activeView === 'scanner' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                        <Scan className="w-6 h-6"/>
+                        <span>Escáner</span>
+                    </button>
                     <button onClick={() => setActiveView('history')} className={`flex items-center w-full px-4 py-3 space-x-3 rounded-lg ${activeView === 'history' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
                         <History className="w-6 h-6"/>
                         <span>Historial</span>
@@ -1453,6 +1458,16 @@ export default function App() {
                 <main className="flex-1 overflow-y-auto bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
                     {activeView === 'dashboard' && <Dashboard items={items} onNavigate={setActiveView} />}
                     {activeView === 'inventory' && <InventoryList items={items} categories={categories} onSave={handleSaveItem} onDelete={handleDeleteItem} onUpdateStock={handleUpdateStock} itemsCount={items.length} />}
+                    {activeView === 'scanner' && (
+                        <div className="p-6">
+                            <ScannerModule 
+                                items={items} 
+                                onSave={handleSaveItem} 
+                                onUpdateStock={handleUpdateStock}
+                                user={user}
+                            />
+                        </div>
+                    )}
                     {activeView === 'history' && <HistoryLog history={history} />}
                 </main>
                 {showCriticalAlert && <CriticalStockAlert items={criticalStockItems} onClose={() => setShowCriticalAlert(false)} />}
