@@ -1398,6 +1398,10 @@ export default function App() {
         await addDoc(collection(db, "history"), historyData);
     };
 
+    const refreshItems = async () => {
+        const itemsSnapshot = await getDocs(collection(db, 'items'));
+        return itemsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    };
 
     if (loading) {
         return <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900"><div className="w-16 h-16 border-4 border-blue-500 border-dashed rounded-full animate-spin"></div></div>;
@@ -1465,7 +1469,7 @@ export default function App() {
                         </div>
                     )}
                     {activeView === 'history' && <HistoryLog history={history} />}
-                    {activeView === 'codes' && <BarcodeModule items={items} />}
+                    {activeView === 'codes' && <BarcodeModule items={items} refreshItems={refreshItems} />}
                 </main>
                 {showCriticalAlert && <CriticalStockAlert items={criticalStockItems} onClose={() => setShowCriticalAlert(false)} />}
             </div>
