@@ -10,13 +10,17 @@
   },
   "dependencies": {
     "@react-icons/all-files": "^4.1.0",
+    "@react-pdf/renderer": "^4.3.0",
     "@vitejs/plugin-react": "^4.0.4",
     "autoprefixer": "^10.4.14",
     "firebase": "^10.1.0",
+    "jsbarcode": "^3.12.1",
     "lucide-react": "^0.263.1",
     "postcss": "^8.4.27",
     "react": "^18.2.0",
+    "react-barcode": "^1.6.1",
     "react-dom": "^18.2.0",
+    "react-to-print": "^3.1.1",
     "tailwindcss": "^3.3.3",
     "vite": "^4.4.9"
   },

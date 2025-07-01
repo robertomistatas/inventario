@@ -4,6 +4,8 @@ import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from
 import { getFirestore, collection, getDocs, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp, setDoc } from 'firebase/firestore';
 import { ChevronDown, ChevronUp, Search, PlusCircle, Edit, Trash2, Box, AlertTriangle, CheckCircle, Package, History, LogOut, Moon, Sun, X, Scan } from 'lucide-react';
 import ScannerModule from './components/ScannerModule.jsx';
+import BarcodeModule from './components/BarcodeModule';
+import Barcode from 'react-barcode';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
 // Configuración actualizada con tus credenciales
@@ -1407,7 +1409,8 @@ export default function App() {
     
     const Sidebar = () => (
         <div className="flex flex-col justify-between w-64 p-4 bg-white shadow-lg dark:bg-gray-800">
-            <div>                <div className="mb-10">
+            <div>
+                <div className="mb-10">
                     <img 
                         src="https://static.wixstatic.com/media/1831cb_2d8491304a02448cb1751c82852750ff~mv2.png/v1/fill/w_148,h_27,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/Logotipo%20MisTatas%20blanco.png"
                         alt="Mistatas Logo"
@@ -1427,26 +1430,19 @@ export default function App() {
                         <Scan className="w-6 h-6"/>
                         <span>Escáner</span>
                     </button>
-                    <button onClick={() => setActiveView('history')} className={`flex items-center w-full px-4 py-3 space-x-3 rounded-lg ${activeView === 'history' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
-                        <History className="w-6 h-6"/>
-                        <span>Historial</span>
+                    <button onClick={() => setActiveView('codes')} className={`flex items-center w-full px-4 py-3 space-x-3 rounded-lg ${activeView === 'codes' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                        <Barcode className="w-6 h-6"/>
+                        <span>Códigos</span>
                     </button>
                 </nav>
             </div>
-            <div className="space-y-2">                 <button 
-                    onClick={() => setIsDarkMode(!isDarkMode)} 
-                    className="flex items-center w-full px-4 py-3 space-x-3 text-gray-600 rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                    aria-label={`Cambiar a modo ${isDarkMode ? 'claro' : 'oscuro'}`}
+            <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                    onClick={handleLogout}
+                    className="flex items-center w-full px-4 py-3 space-x-3 text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
                 >
-                    {isDarkMode ? 
-                        <Sun className="w-6 h-6 transition-transform duration-200 rotate-0"/> : 
-                        <Moon className="w-6 h-6 transition-transform duration-200 rotate-0"/>
-                    }
-                    <span className="transition-colors duration-200">Modo {isDarkMode ? 'Claro' : 'Oscuro'}</span>
-                </button>
-                <button onClick={handleLogout} className="flex items-center w-full px-4 py-3 space-x-3 text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30">
-                    <LogOut className="w-6 h-6"/>
-                    <span>Cerrar Sesión</span>
+                    <LogOut className="w-6 h-6" />
+                    <span>Cerrar sesión</span>
                 </button>
             </div>
         </div>
@@ -1469,6 +1465,7 @@ export default function App() {
                         </div>
                     )}
                     {activeView === 'history' && <HistoryLog history={history} />}
+                    {activeView === 'codes' && <BarcodeModule items={items} />}
                 </main>
                 {showCriticalAlert && <CriticalStockAlert items={criticalStockItems} onClose={() => setShowCriticalAlert(false)} />}
             </div>
