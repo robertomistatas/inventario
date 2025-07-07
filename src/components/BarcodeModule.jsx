@@ -26,14 +26,21 @@ const BarcodeModule = ({ items, refreshItems }) => {
         setFilterCategory(event.target.value);
     };
 
+
+    // Imprimir solo el área de códigos
     const handlePrint = () => {
+        const printContents = document.getElementById('print-area').innerHTML;
+        const originalContents = document.body.innerHTML;
+        document.body.innerHTML = printContents;
         window.print();
+        document.body.innerHTML = originalContents;
+        window.location.reload(); // Para recargar el JS y restaurar el estado
     };
 
     return (
         <div className="p-4">
             <h1 className="text-2xl font-bold mb-4">Códigos de Barras</h1>
-            <div className="flex gap-4 mb-4">
+            <div className="flex gap-4 mb-4 print:hidden">
                 <select 
                     value={filterCategory} 
                     onChange={handleFilterChange} 
@@ -58,16 +65,31 @@ const BarcodeModule = ({ items, refreshItems }) => {
                     Refrescar Códigos
                 </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {localItems.map((item) => (
-                    <div key={item.code} className="p-4 border rounded shadow">
-                        <h2 className="text-lg font-semibold mb-2">{item.name}</h2>
-                        <Barcode value={item.code || 'N/A'} />
-                        <p className="mt-2 text-sm text-gray-600">Categoría: {item.category || 'Sin categoría'}</p>
-                        <p className="text-sm text-gray-600">Cantidad: {item.quantity}</p>
-                    </div>
-                ))}
+            {/* Área de impresión */}
+            <div id="print-area">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {localItems.map((item) => (
+                        <div key={item.code} className="p-4 border rounded shadow break-inside-avoid">
+                            <h2 className="text-lg font-semibold mb-2">{item.name}</h2>
+                            <Barcode value={item.code || 'N/A'} />
+                            <p className="mt-2 text-sm text-gray-600">Categoría: {item.category || 'Sin categoría'}</p>
+                            <p className="text-sm text-gray-600">Cantidad: {item.quantity}</p>
+                        </div>
+                    ))}
+                </div>
             </div>
+            {/* Estilos para impresión */}
+            <style>{`
+                @media print {
+                    body { background: white !important; }
+                    .print\:hidden { display: none !important; }
+                    #print-area { display: block; }
+                    #print-area .grid { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 1rem !important; }
+                    #print-area .break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
+                    #print-area .border, #print-area .shadow { box-shadow: none !important; border: 1px solid #ccc !important; }
+                    #print-area { margin: 0 !important; padding: 0 !important; }
+                }
+            `}</style>
         </div>
     );
 };

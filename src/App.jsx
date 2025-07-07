@@ -1270,16 +1270,19 @@ export default function App() {
         }
         return false;
     });
-    
     const [criticalStockItems, setCriticalStockItems] = useState([]);
     const [showCriticalAlert, setShowCriticalAlert] = useState(false);
-    
+    // Responsive sidebar
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+
+    // ...existing code for data fetching and handlers...
+
     // Función para inicializar datos una sola vez
     const initializeData = useCallback(async () => {
         await seedDatabase();
-    }, []);    useEffect(() => {
+    }, []);
+    useEffect(() => {
         initializeData();
-        
         if (typeof window !== 'undefined') {
             const root = window.document.documentElement;
             if (isDarkMode) {
@@ -1289,7 +1292,6 @@ export default function App() {
                 root.classList.remove('dark');
                 localStorage.setItem('theme', 'light');
             }
-
             // Actualizamos el color del tema en meta tags
             const metaThemeColor = document.querySelector('meta[name="theme-color"]');
             if (metaThemeColor) {
@@ -1297,39 +1299,32 @@ export default function App() {
             }
         }
     }, [isDarkMode, initializeData]);
-    
     useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
             setLoading(false);
         });
-
         return () => unsubscribeAuth();
     }, []);
-    
     useEffect(() => {
         if (user) {
             const unsubItems = onSnapshot(collection(db, 'items'), (snapshot) => {
                 const itemsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setItems(itemsList);
-                
                 const critical = itemsList.filter(item => item.quantity <= item.criticalThreshold);
                 if (critical.length > 0 && critical.some(c => !criticalStockItems.find(i => i.id === c.id))) {
                     setCriticalStockItems(critical);
                     setShowCriticalAlert(true);
                 }
             });
-            
             const unsubCategories = onSnapshot(collection(db, 'categories'), (snapshot) => {
                 const catList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setCategories(catList);
             });
-
             const unsubHistory = onSnapshot(collection(db, 'history'), (snapshot) => {
                 const historyList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setHistory(historyList);
             });
-
             return () => {
                 unsubItems();
                 unsubCategories();
@@ -1337,17 +1332,14 @@ export default function App() {
             };
         }
     }, [user, criticalStockItems]);
-
     const handleLogout = async () => {
         await signOut(auth);
         setUser(null);
         setActiveView('dashboard');
     };
-
     const handleSaveItem = async (itemData, itemId) => {
         const itemRef = itemId ? doc(db, 'items', itemId) : doc(collection(db, 'items'));
         const isNewItem = !itemId;
-
         const historyData = {
             itemName: itemData.name,
             type: isNewItem ? 'creación' : 'edición',
@@ -1355,7 +1347,6 @@ export default function App() {
             userEmail: user.email,
             timestamp: serverTimestamp()
         };
-
         if (itemId) {
             await updateDoc(itemRef, { ...itemData, lastModified: serverTimestamp() });
         } else {
@@ -1363,18 +1354,16 @@ export default function App() {
         }
         await addDoc(collection(db, "history"), historyData);
     };
-
     const handleDeleteItem = async (itemId) => {
         await deleteDoc(doc(db, 'items', itemId));
-    };      const handleUpdateStock = async (itemId, newQuantity, movementType, quantityChanged, motivo = '') => {
+    };
+    const handleUpdateStock = async (itemId, newQuantity, movementType, quantityChanged, motivo = '') => {
         const itemRef = doc(db, 'items', itemId);
         const item = items.find(i => i.id === itemId);
-        
         await updateDoc(itemRef, {
             quantity: newQuantity,
             lastModified: serverTimestamp()
         });
-
         const now = new Date();
         const historyData = {
             itemId: itemId,
@@ -1388,7 +1377,7 @@ export default function App() {
             userEmail: user.email,
             timestamp: serverTimestamp(),
             motivo: motivo,
-            fecha: now.toISOString().split('T')[0], // Formato YYYY-MM-DD para mejor filtrado
+            fecha: now.toISOString().split('T')[0],
             hora: now.toLocaleTimeString(),
             year: now.getFullYear(),
             month: now.getMonth() + 1,
@@ -1397,22 +1386,21 @@ export default function App() {
         };
         await addDoc(collection(db, "history"), historyData);
     };
-
     const refreshItems = async () => {
         const itemsSnapshot = await getDocs(collection(db, 'items'));
         return itemsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     };
-
     if (loading) {
         return <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900"><div className="w-16 h-16 border-4 border-blue-500 border-dashed rounded-full animate-spin"></div></div>;
     }
-
     if (!user) {
         return <Login onLoginSuccess={() => setLoading(true)} />;
     }
-    
+
+    // Responsive Sidebar
     const Sidebar = () => (
-        <div className="flex flex-col justify-between w-64 p-4 bg-white shadow-lg dark:bg-gray-800">
+        <div className={`fixed z-40 inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-200
+            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} sm:relative sm:translate-x-0 sm:w-64`}>
             <div>
                 <div className="mb-10">
                     <img 
@@ -1422,19 +1410,19 @@ export default function App() {
                     />
                 </div>
                 <nav className="space-y-2">
-                    <button onClick={() => setActiveView('dashboard')} className={`flex items-center w-full px-4 py-3 space-x-3 rounded-lg ${activeView === 'dashboard' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                    <button onClick={() => { setActiveView('dashboard'); setSidebarOpen(false); }} className={`flex items-center w-full px-4 py-3 space-x-3 rounded-lg ${activeView === 'dashboard' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
                         <CheckCircle className="w-6 h-6"/>
                         <span>Dashboard</span>
                     </button>
-                    <button onClick={() => setActiveView('inventory')} className={`flex items-center w-full px-4 py-3 space-x-3 rounded-lg ${activeView === 'inventory' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                    <button onClick={() => { setActiveView('inventory'); setSidebarOpen(false); }} className={`flex items-center w-full px-4 py-3 space-x-3 rounded-lg ${activeView === 'inventory' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
                         <Box className="w-6 h-6"/>
                         <span>Inventario</span>
                     </button>
-                    <button onClick={() => setActiveView('scanner')} className={`flex items-center w-full px-4 py-3 space-x-3 rounded-lg ${activeView === 'scanner' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                    <button onClick={() => { setActiveView('scanner'); setSidebarOpen(false); }} className={`flex items-center w-full px-4 py-3 space-x-3 rounded-lg ${activeView === 'scanner' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
                         <Scan className="w-6 h-6"/>
                         <span>Escáner</span>
                     </button>
-                    <button onClick={() => setActiveView('codes')} className={`flex items-center w-full px-4 py-3 space-x-3 rounded-lg ${activeView === 'codes' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                    <button onClick={() => { setActiveView('codes'); setSidebarOpen(false); }} className={`flex items-center w-full px-4 py-3 space-x-3 rounded-lg ${activeView === 'codes' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
                         <Barcode className="w-6 h-6"/>
                         <span>Códigos</span>
                     </button>
@@ -1451,15 +1439,30 @@ export default function App() {
             </div>
         </div>
     );
-      return (
+
+    // Botón hamburguesa para móviles
+    const HamburgerButton = () => (
+        <button
+            className="sm:hidden fixed top-4 left-4 z-50 bg-blue-600 text-white p-2 rounded-md"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+        >
+            <span className="sr-only">Abrir menú</span>
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+        </button>
+    );
+
+    return (
         <div className="min-h-screen dark:bg-gray-900 transition-colors duration-200">
-            <div className={`flex h-screen bg-gray-100 dark:bg-gray-900 font-sans`}>
+            <HamburgerButton />
+            <div className="flex flex-col sm:flex-row h-screen font-sans">
                 <Sidebar />
-                <main className="flex-1 overflow-y-auto bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
+                <main className="flex-1 overflow-y-auto p-2 sm:p-6 bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
                     {activeView === 'dashboard' && <Dashboard items={items} onNavigate={setActiveView} />}
                     {activeView === 'inventory' && <InventoryList items={items} categories={categories} onSave={handleSaveItem} onDelete={handleDeleteItem} onUpdateStock={handleUpdateStock} itemsCount={items.length} />}
                     {activeView === 'scanner' && (
-                        <div className="p-6">
+                        <div className="p-2 sm:p-6">
                             <ScannerModule 
                                 items={items} 
                                 onSave={handleSaveItem} 
