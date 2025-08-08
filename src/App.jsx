@@ -2,9 +2,10 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, getDocs, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp, setDoc } from 'firebase/firestore';
-import { ChevronDown, ChevronUp, Search, PlusCircle, Edit, Trash2, Box, AlertTriangle, CheckCircle, Package, History, LogOut, Moon, Sun, X, Scan } from 'lucide-react';
+import { ChevronDown, ChevronUp, Search, PlusCircle, Edit, Trash2, Box, AlertTriangle, CheckCircle, Package, History, LogOut, Moon, Sun, X, Scan, FileText } from 'lucide-react';
 import ScannerModule from './components/ScannerModule.jsx';
 import BarcodeModule from './components/BarcodeModule';
+import ReportModule from './components/ReportModule';
 import Barcode from 'react-barcode';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -426,6 +427,11 @@ const Dashboard = ({ items, onNavigate }) => {
                             className="flex items-center justify-center p-4 sm:p-6 space-x-2 sm:space-x-3 text-base sm:text-lg font-semibold text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-blue-500 dark:hover:bg-blue-600">
                         <Box className="w-5 h-5 sm:w-6 sm:h-6"/>
                         <span>Ver Inventario</span>
+                    </button>
+                    <button onClick={() => onNavigate('reports')} 
+                            className="flex items-center justify-center p-4 sm:p-6 space-x-2 sm:space-x-3 text-base sm:text-lg font-semibold text-white bg-green-600 rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:bg-green-500 dark:hover:bg-green-600">
+                        <FileText className="w-5 h-5 sm:w-6 sm:h-6"/>
+                        <span>Generar Informe</span>
                     </button>
                     <button onClick={() => onNavigate('history')} 
                             className="flex items-center justify-center p-4 sm:p-6 space-x-2 sm:space-x-3 text-base sm:text-lg font-semibold text-gray-700 bg-gray-200 rounded-lg shadow-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
@@ -1399,7 +1405,7 @@ export default function App() {
 
     // Responsive Sidebar
     const Sidebar = () => (
-        <div className={`fixed z-40 inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-200
+        <div className={`sidebar fixed z-40 inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-200 print:hidden
             ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} sm:relative sm:translate-x-0 sm:w-64`}>
             <div>
                 <div className="mb-10">
@@ -1426,9 +1432,20 @@ export default function App() {
                         <Barcode className="w-6 h-6"/>
                         <span>Códigos</span>
                     </button>
+                    <button onClick={() => { setActiveView('reports'); setSidebarOpen(false); }} className={`flex items-center w-full px-4 py-3 space-x-3 rounded-lg ${activeView === 'reports' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                        <FileText className="w-6 h-6"/>
+                        <span>Informes</span>
+                    </button>
                 </nav>
             </div>
-            <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+                <button
+                    onClick={() => setIsDarkMode(!isDarkMode)}
+                    className="flex items-center w-full px-4 py-3 space-x-3 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                    {isDarkMode ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
+                    <span>{isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}</span>
+                </button>
                 <button
                     onClick={handleLogout}
                     className="flex items-center w-full px-4 py-3 space-x-3 text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
@@ -1443,7 +1460,7 @@ export default function App() {
     // Botón hamburguesa para móviles
     const HamburgerButton = () => (
         <button
-            className="sm:hidden fixed top-4 left-4 z-50 bg-blue-600 text-white p-2 rounded-md"
+            className="hamburger-button sm:hidden fixed top-4 left-4 z-50 bg-blue-600 text-white p-2 rounded-md print:hidden"
             onClick={() => setSidebarOpen(!sidebarOpen)}
         >
             <span className="sr-only">Abrir menú</span>
@@ -1453,9 +1470,63 @@ export default function App() {
         </button>
     );
 
+    // Botón flotante de cambio de tema
+    const ThemeToggleButton = () => (
+        <button
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            className={`fixed ${sidebarOpen ? 'top-16' : 'top-4'} right-4 z-50 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 p-2 rounded-full shadow-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200 print:hidden sm:top-4`}
+            title={isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+        >
+            {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+        </button>
+    );
+
     return (
         <div className="min-h-screen dark:bg-gray-900 transition-colors duration-200">
+            {/* Estilos globales para impresión */}
+            <style jsx global>{`
+                @media print {
+                    /* Ocultar la barra lateral y navegación durante la impresión */
+                    .sidebar,
+                    nav,
+                    aside,
+                    .hamburger-button,
+                    .print\\:hidden,
+                    [class*="sidebar"],
+                    [class*="fixed"],
+                    button:not(.print-allowed) {
+                        display: none !important;
+                        visibility: hidden !important;
+                    }
+                    
+                    /* Asegurar que el main ocupe todo el ancho */
+                    main {
+                        margin-left: 0 !important;
+                        width: 100% !important;
+                        padding: 0 !important;
+                    }
+                    
+                    /* Solo mostrar el contenido del reporte */
+                    .report-container {
+                        position: static !important;
+                        width: 100% !important;
+                        height: auto !important;
+                        margin: 0 !important;
+                        padding: 20px !important;
+                    }
+                }
+            `}</style>
             <HamburgerButton />
+            <ThemeToggleButton />
+            
+            {/* Overlay para cerrar sidebar en móviles */}
+            {sidebarOpen && (
+                <div 
+                    className="fixed inset-0 bg-black bg-opacity-50 z-30 sm:hidden print:hidden"
+                    onClick={() => setSidebarOpen(false)}
+                />
+            )}
+            
             <div className="flex flex-col sm:flex-row h-screen font-sans">
                 <Sidebar />
                 <main className="flex-1 overflow-y-auto p-2 sm:p-6 bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
@@ -1473,6 +1544,15 @@ export default function App() {
                     )}
                     {activeView === 'history' && <HistoryLog history={history} />}
                     {activeView === 'codes' && <BarcodeModule items={items} refreshItems={refreshItems} />}
+                    {activeView === 'reports' && (
+                        <div className="p-2 sm:p-6">
+                            <ReportModule 
+                                items={items} 
+                                history={history} 
+                                categories={categories} 
+                            />
+                        </div>
+                    )}
                 </main>
                 {showCriticalAlert && <CriticalStockAlert items={criticalStockItems} onClose={() => setShowCriticalAlert(false)} />}
             </div>
