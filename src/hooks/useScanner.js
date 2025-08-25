@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export const useScanner = (onScan) => {
     const [isListening, setIsListening] = useState(false);
     const [buffer, setBuffer] = useState('');
     const [lastKeyTime, setLastKeyTime] = useState(Date.now());
+
+    const startListening = useCallback(() => setIsListening(true), []);
+    const stopListening = useCallback(() => setIsListening(false), []);
 
     useEffect(() => {
         if (!isListening) return;
@@ -37,8 +40,8 @@ export const useScanner = (onScan) => {
     }, [isListening, buffer, lastKeyTime, onScan]);
 
     return {
-        startListening: () => setIsListening(true),
-        stopListening: () => setIsListening(false),
+        startListening,
+        stopListening,
         isListening
     };
 };

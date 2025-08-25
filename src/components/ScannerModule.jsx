@@ -27,7 +27,6 @@ const ScannerModule = ({ items, onSave, onUpdateStock }) => {
             const item = items.find(i => i.code === normalizedBarcode);
 
             if (!item) {
-                console.error('Códigos disponibles en el inventario:', items.map(i => i.code));
                 showNotif(`Producto no encontrado en el inventario. Código escaneado: ${normalizedBarcode}`, 'error');
                 return;
             }
@@ -37,7 +36,7 @@ const ScannerModule = ({ items, onSave, onUpdateStock }) => {
             showNotif(`Producto encontrado: ${item.name}. Ingrese la cantidad.`, 'success');
 
         } catch (error) {
-            console.error('Error al procesar el código:', error);
+            console.log('Error al procesar el código:', error);
             showNotif('Error al procesar el código de barras', 'error');
         }
     };
@@ -92,7 +91,7 @@ const ScannerModule = ({ items, onSave, onUpdateStock }) => {
             stopListening();
             resetScanState();
         }
-    }, [isActive]);
+    }, [isActive, startListening, stopListening]);
 
     return (
         <div className="p-6 space-y-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">

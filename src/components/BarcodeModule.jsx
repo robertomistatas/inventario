@@ -22,12 +22,11 @@ const BarcodeModule = ({ items, refreshItems }) => {
     useEffect(() => {
         if (selectAll) {
             setSelectedItems(filteredItems.map(item => item.id));
-        } else if (selectedItems.length > 0) {
-            // Si se desmarca selectAll, mantener solo los seleccionados que aún están en el filtro
-            setSelectedItems(selectedItems.filter(id => filteredItems.some(item => item.id === id)));
+        } else {
+            // Reset selection when filters change
+            setSelectedItems([]);
         }
-        // eslint-disable-next-line
-    }, [selectAll, filterCategory, searchTerm, items]);
+    }, [selectAll, filteredItems]);
 
     const handleRefresh = async () => {
         await refreshItems();

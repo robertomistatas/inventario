@@ -2,11 +2,11 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, getDocs, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp, setDoc } from 'firebase/firestore';
-import { ChevronDown, ChevronUp, Search, PlusCircle, Edit, Trash2, Box, AlertTriangle, CheckCircle, Package, History, LogOut, Moon, Sun, X, Scan, FileText } from 'lucide-react';
-import ScannerModule from './components/ScannerModule.jsx';
+import { ChevronDown, ChevronUp, Search, PlusCircle, Edit, Trash2, Box, AlertTriangle, CheckCircle, Package, History, LogOut, Moon, Sun, X, Scan, FileText, ArrowRight } from 'lucide-react';
+import ScannerModule from './components/ScannerModule';
 import BarcodeModule from './components/BarcodeModule';
 import ReportModule from './components/ReportModule';
-import Barcode from 'react-barcode';
+import InteractiveMigration from './components/InteractiveMigration';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
 // Configuración actualizada con tus credenciales
@@ -34,40 +34,44 @@ const initialData = {
     "MANUALES / RECORDATORIOS",
     "MATERIALES DE INSTALACIÓN"
   ],
+  branches: [
+    { id: "santiago", name: "Stock Santiago" },
+    { id: "valparaiso", name: "Stock Valparaíso" }
+  ],
   items: [
-    { name: "TERMINALES INTELIGENTES", category: "DISPOSITIVOS INTELIGENTES", quantity: 20, criticalThreshold: 5 },
-    { name: "TERMINALES RED TELEFONICA", category: "DISPOSITIVOS INTELIGENTES", quantity: 15, criticalThreshold: 5 },
-    { name: "DETECTOR DE CAIDAS", category: "DISPOSITIVOS INTELIGENTES", quantity: 25, criticalThreshold: 5 },
-    { name: "SENSOR PUERTAS Y VENTANAS", category: "DISPOSITIVOS INTELIGENTES", quantity: 50, criticalThreshold: 10 },
-    { name: "LLAVEROS DE INTRUSION", category: "DISPOSITIVOS INTELIGENTES", quantity: 30, criticalThreshold: 10 },
-    { name: "SENSOR DETEC. MOVIMIENTO", category: "DISPOSITIVOS INTELIGENTES", quantity: 40, criticalThreshold: 10 },
-    { name: "ACTUADOR CORTE DE GAS", category: "DISPOSITIVOS INTELIGENTES", quantity: 10, criticalThreshold: 3 },
-    { name: "DETECTOR DE GAS", category: "DISPOSITIVOS INTELIGENTES", quantity: 15, criticalThreshold: 5 },
-    { name: "DETECTOR DE HUMO", category: "DISPOSITIVOS INTELIGENTES", quantity: 18, criticalThreshold: 5 },
-    { name: "BOTON S.O.S FIJO", category: "DISPOSITIVOS INTELIGENTES", quantity: 22, criticalThreshold: 8 },
-    { name: "DISPOSITIVO S.O.S MOVIL", category: "DISPOSITIVOS INTELIGENTES", quantity: 12, criticalThreshold: 4 },
-    { name: "GPS Colgante EV-04", category: "DISPOSITIVOS INTELIGENTES", quantity: 8, criticalThreshold: 3 },
-    { name: "GPS Reloj EV-05", category: "DISPOSITIVOS INTELIGENTES", quantity: 9, criticalThreshold: 3 },
-    { name: "SIMCARDS", category: "CONSUMIBLES", quantity: 200, criticalThreshold: 50 },
-    { name: "CARGADORES CONSOLAS Y DET. GAS", category: "CONSUMIBLES", quantity: 30, criticalThreshold: 10 },
-    { name: "BATERIA DE LITTIO 3V CR2032", category: "CONSUMIBLES", quantity: 150, criticalThreshold: 40 },
-    { name: "MICRO BATERIA LITTIO 3V CR2450", category: "CONSUMIBLES", quantity: 100, criticalThreshold: 30 },
-    { name: "PILA AA", category: "CONSUMIBLES", quantity: 300, criticalThreshold: 100 },
-    { name: "BATERIA 27A", category: "CONSUMIBLES", quantity: 80, criticalThreshold: 20 },
-    { name: "BATERIA 23A", category: "CONSUMIBLES", quantity: 80, criticalThreshold: 20 },
-    { name: "MANUAL PLAN FULL PROTECCION", category: "MANUALES / RECORDATORIOS", quantity: 50, criticalThreshold: 15 },
-    { name: "MANUAL PLAN STARTER + CAIDA", category: "MANUALES / RECORDATORIOS", quantity: 50, criticalThreshold: 15 },
-    { name: "MANUAL PLAN MAYOR", category: "MANUALES / RECORDATORIOS", quantity: 50, criticalThreshold: 15 },
-    { name: "MANUAL DE USO", category: "MANUALES / RECORDATORIOS", quantity: 100, criticalThreshold: 25 },
-    { name: "RECORDATORIO SI SU SENSOR...", category: "MANUALES / RECORDATORIOS", quantity: 100, criticalThreshold: 25 },
-    { name: "NIPLE", category: "MATERIALES DE INSTALACIÓN", quantity: 70, criticalThreshold: 20 },
-    { name: "CODO HI HE", category: "MATERIALES DE INSTALACIÓN", quantity: 70, criticalThreshold: 20 },
-    { name: "FLEXIBLE 1/2 A 1/2", category: "MATERIALES DE INSTALACIÓN", quantity: 40, criticalThreshold: 15 },
-    { name: "REGULADOR DE GAS", category: "MATERIALES DE INSTALACIÓN", quantity: 20, criticalThreshold: 5 },
-    { name: "TEFLON DE GAS", category: "MATERIALES DE INSTALACIÓN", quantity: 30, criticalThreshold: 10 },
-    { name: "CANALETAS", category: "MATERIALES DE INSTALACIÓN", quantity: 100, criticalThreshold: 30 },
-    { name: "ABRAZADERAS METÁLICAS", category: "MATERIALES DE INSTALACIÓN", quantity: 200, criticalThreshold: 50 },
-    { name: "SOPLETES GAS BUTANO", category: "MATERIALES DE INSTALACIÓN", quantity: 5, criticalThreshold: 2 },
+    { name: "TERMINALES INTELIGENTES", category: "DISPOSITIVOS INTELIGENTES", quantity: 20, criticalThreshold: 5, branch: "santiago" },
+    { name: "TERMINALES RED TELEFONICA", category: "DISPOSITIVOS INTELIGENTES", quantity: 15, criticalThreshold: 5, branch: "santiago" },
+    { name: "DETECTOR DE CAIDAS", category: "DISPOSITIVOS INTELIGENTES", quantity: 25, criticalThreshold: 5, branch: "santiago" },
+    { name: "SENSOR PUERTAS Y VENTANAS", category: "DISPOSITIVOS INTELIGENTES", quantity: 50, criticalThreshold: 10, branch: "santiago" },
+    { name: "LLAVEROS DE INTRUSION", category: "DISPOSITIVOS INTELIGENTES", quantity: 30, criticalThreshold: 10, branch: "santiago" },
+    { name: "SENSOR DETEC. MOVIMIENTO", category: "DISPOSITIVOS INTELIGENTES", quantity: 40, criticalThreshold: 10, branch: "santiago" },
+    { name: "ACTUADOR CORTE DE GAS", category: "DISPOSITIVOS INTELIGENTES", quantity: 10, criticalThreshold: 3, branch: "santiago" },
+    { name: "DETECTOR DE GAS", category: "DISPOSITIVOS INTELIGENTES", quantity: 15, criticalThreshold: 5, branch: "santiago" },
+    { name: "DETECTOR DE HUMO", category: "DISPOSITIVOS INTELIGENTES", quantity: 18, criticalThreshold: 5, branch: "santiago" },
+    { name: "BOTON S.O.S FIJO", category: "DISPOSITIVOS INTELIGENTES", quantity: 22, criticalThreshold: 8, branch: "santiago" },
+    { name: "DISPOSITIVO S.O.S MOVIL", category: "DISPOSITIVOS INTELIGENTES", quantity: 12, criticalThreshold: 4, branch: "santiago" },
+    { name: "GPS Colgante EV-04", category: "DISPOSITIVOS INTELIGENTES", quantity: 8, criticalThreshold: 3, branch: "santiago" },
+    { name: "GPS Reloj EV-05", category: "DISPOSITIVOS INTELIGENTES", quantity: 9, criticalThreshold: 3, branch: "santiago" },
+    { name: "SIMCARDS", category: "CONSUMIBLES", quantity: 200, criticalThreshold: 50, branch: "santiago" },
+    { name: "CARGADORES CONSOLAS Y DET. GAS", category: "CONSUMIBLES", quantity: 30, criticalThreshold: 10, branch: "santiago" },
+    { name: "BATERIA DE LITTIO 3V CR2032", category: "CONSUMIBLES", quantity: 150, criticalThreshold: 40, branch: "santiago" },
+    { name: "MICRO BATERIA LITTIO 3V CR2450", category: "CONSUMIBLES", quantity: 100, criticalThreshold: 30, branch: "santiago" },
+    { name: "PILA AA", category: "CONSUMIBLES", quantity: 300, criticalThreshold: 100, branch: "santiago" },
+    { name: "BATERIA 27A", category: "CONSUMIBLES", quantity: 80, criticalThreshold: 20, branch: "santiago" },
+    { name: "BATERIA 23A", category: "CONSUMIBLES", quantity: 80, criticalThreshold: 20, branch: "santiago" },
+    { name: "MANUAL PLAN FULL PROTECCION", category: "MANUALES / RECORDATORIOS", quantity: 50, criticalThreshold: 15, branch: "santiago" },
+    { name: "MANUAL PLAN STARTER + CAIDA", category: "MANUALES / RECORDATORIOS", quantity: 50, criticalThreshold: 15, branch: "santiago" },
+    { name: "MANUAL PLAN MAYOR", category: "MANUALES / RECORDATORIOS", quantity: 50, criticalThreshold: 15, branch: "santiago" },
+    { name: "MANUAL DE USO", category: "MANUALES / RECORDATORIOS", quantity: 100, criticalThreshold: 25, branch: "santiago" },
+    { name: "RECORDATORIO SI SU SENSOR...", category: "MANUALES / RECORDATORIOS", quantity: 100, criticalThreshold: 25, branch: "santiago" },
+    { name: "NIPLE", category: "MATERIALES DE INSTALACIÓN", quantity: 70, criticalThreshold: 20, branch: "santiago" },
+    { name: "CODO HI HE", category: "MATERIALES DE INSTALACIÓN", quantity: 70, criticalThreshold: 20, branch: "santiago" },
+    { name: "FLEXIBLE 1/2 A 1/2", category: "MATERIALES DE INSTALACIÓN", quantity: 40, criticalThreshold: 15, branch: "santiago" },
+    { name: "REGULADOR DE GAS", category: "MATERIALES DE INSTALACIÓN", quantity: 20, criticalThreshold: 5, branch: "santiago" },
+    { name: "TEFLON DE GAS", category: "MATERIALES DE INSTALACIÓN", quantity: 30, criticalThreshold: 10, branch: "santiago" },
+    { name: "CANALETAS", category: "MATERIALES DE INSTALACIÓN", quantity: 100, criticalThreshold: 30, branch: "santiago" },
+    { name: "ABRAZADERAS METÁLICAS", category: "MATERIALES DE INSTALACIÓN", quantity: 200, criticalThreshold: 50, branch: "santiago" },
+    { name: "SOPLETES GAS BUTANO", category: "MATERIALES DE INSTALACIÓN", quantity: 5, criticalThreshold: 2, branch: "santiago" },
   ],
 };
 
@@ -1261,6 +1265,150 @@ const HistoryLog = ({ history }) => {
     );
 };
 
+// Componente de selección inicial de sucursal
+const BranchSelection = ({ onSelectBranch }) => {
+    return (
+        <div className="flex items-center justify-center min-h-screen p-4 bg-gray-100 dark:bg-gray-900">
+            <div className="w-full max-w-2xl mx-auto">
+                <div className="p-6 sm:p-8 space-y-6 sm:space-y-8 bg-white rounded-xl shadow-lg dark:bg-gray-800">
+                    <div className="text-center">
+                        <img 
+                            src="https://static.wixstatic.com/media/1831cb_2d8491304a02448cb1751c82852750ff~mv2.png/v1/fill/w_148,h_27,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/Logotipo%20MisTatas%20blanco.png"
+                            alt="Mistatas Logo"
+                            className="h-8 w-auto mx-auto mb-4"
+                        />
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Seleccionar Inventario</h1>
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">¿Qué inventario deseas gestionar?</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {/* Inventario Santiago */}
+                        <button
+                            onClick={() => onSelectBranch('santiago')}
+                            className="group relative p-6 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl shadow-lg hover:from-blue-600 hover:to-blue-700 transform hover:scale-105 transition-all duration-200 text-center"
+                        >
+                            <div className="flex flex-col items-center space-y-3">
+                                <div className="p-3 bg-white bg-opacity-20 rounded-full">
+                                    <Box className="w-8 h-8" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-semibold">Santiago</h3>
+                                    <p className="text-sm opacity-90">Inventario Regional Metropolitana</p>
+                                </div>
+                            </div>
+                        </button>
+
+                        {/* Inventario Valparaíso */}
+                        <button
+                            onClick={() => onSelectBranch('valparaiso')}
+                            className="group relative p-6 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl shadow-lg hover:from-green-600 hover:to-green-700 transform hover:scale-105 transition-all duration-200 text-center"
+                        >
+                            <div className="flex flex-col items-center space-y-3">
+                                <div className="p-3 bg-white bg-opacity-20 rounded-full">
+                                    <Package className="w-8 h-8" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-semibold">Valparaíso</h3>
+                                    <p className="text-sm opacity-90">Inventario Región de Valparaíso</p>
+                                </div>
+                            </div>
+                        </button>
+
+                        {/* Inventario Global */}
+                        <button
+                            onClick={() => onSelectBranch('all')}
+                            className="group relative p-6 bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl shadow-lg hover:from-purple-600 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 text-center"
+                        >
+                            <div className="flex flex-col items-center space-y-3">
+                                <div className="p-3 bg-white bg-opacity-20 rounded-full">
+                                    <CheckCircle className="w-8 h-8" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-semibold">Global</h3>
+                                    <p className="text-sm opacity-90">Todas las Sucursales</p>
+                                </div>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div className="text-center">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Puedes cambiar de inventario en cualquier momento desde el panel superior
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Componente selector de sucursal en el header
+const BranchSelector = ({ selectedBranch, onSelectBranch, items }) => {
+    const getBranchStats = (branchId) => {
+        const branchItems = branchId === 'all' ? items : items.filter(item => item.branch === branchId);
+        return {
+            total: branchItems.length,
+            critical: branchItems.filter(item => item.quantity <= item.criticalThreshold).length,
+            low: branchItems.filter(item => item.quantity > item.criticalThreshold && item.quantity <= item.criticalThreshold * 1.5).length
+        };
+    };
+
+    const branchOptions = [
+        { id: 'santiago', name: 'Santiago' },
+        { id: 'valparaiso', name: 'Valparaíso' },
+        { id: 'all', name: 'Global' }
+    ];
+
+    const stats = getBranchStats(selectedBranch);
+
+    return (
+        <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 print:hidden">
+            <div className="px-4 py-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+                    <div className="flex items-center space-x-4">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            Inventario Activo:
+                        </h2>
+                        <div className="relative">
+                            <select
+                                value={selectedBranch}
+                                onChange={(e) => onSelectBranch(e.target.value)}
+                                className="appearance-none bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 pr-8 text-sm font-medium text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                {branchOptions.map(branch => (
+                                    <option key={branch.id} value={branch.id}>
+                                        {branch.name} {branch.id === 'all' ? '(Todas las Sucursales)' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-4 text-sm">
+                        <div className="flex items-center space-x-2">
+                            <span className="text-gray-500 dark:text-gray-400">Ítems:</span>
+                            <span className="font-semibold text-gray-900 dark:text-white">{stats.total}</span>
+                        </div>
+                        {stats.critical > 0 && (
+                            <div className="flex items-center space-x-2">
+                                <span className="text-red-500">Críticos:</span>
+                                <span className="font-semibold text-red-600">{stats.critical}</span>
+                            </div>
+                        )}
+                        {stats.low > 0 && (
+                            <div className="flex items-center space-x-2">
+                                <span className="text-yellow-500">Bajos:</span>
+                                <span className="font-semibold text-yellow-600">{stats.low}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default function App() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -1280,6 +1428,10 @@ export default function App() {
     const [showCriticalAlert, setShowCriticalAlert] = useState(false);
     // Responsive sidebar
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    
+    // Estados para el sistema de sucursales
+    const [selectedBranch, setSelectedBranch] = useState(null); // null = no seleccionado, 'all' = global, 'santiago', 'valparaiso'
+    const [branches, setBranches] = useState([]);
 
     // ...existing code for data fetching and handlers...
 
@@ -1287,8 +1439,17 @@ export default function App() {
     const initializeData = useCallback(async () => {
         await seedDatabase();
     }, []);
+
+    // Función para manejar el cambio de sucursal
+    const handleBranchSelection = (branchId) => {
+        setSelectedBranch(branchId);
+        localStorage.setItem('selectedBranch', branchId);
+    };
     useEffect(() => {
         initializeData();
+    }, [initializeData]);
+
+    useEffect(() => {
         if (typeof window !== 'undefined') {
             const root = window.document.documentElement;
             if (isDarkMode) {
@@ -1304,7 +1465,16 @@ export default function App() {
                 metaThemeColor.setAttribute('content', isDarkMode ? '#1f2937' : '#ffffff');
             }
         }
-    }, [isDarkMode, initializeData]);
+    }, [isDarkMode]);
+
+    useEffect(() => {
+        // Cargar la sucursal seleccionada desde localStorage
+        const savedBranch = localStorage.getItem('selectedBranch');
+        if (savedBranch) {
+            setSelectedBranch(savedBranch);
+        }
+    }, []);
+    
     useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
@@ -1318,7 +1488,7 @@ export default function App() {
                 const itemsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setItems(itemsList);
                 const critical = itemsList.filter(item => item.quantity <= item.criticalThreshold);
-                if (critical.length > 0 && critical.some(c => !criticalStockItems.find(i => i.id === c.id))) {
+                if (critical.length > 0) {
                     setCriticalStockItems(critical);
                     setShowCriticalAlert(true);
                 }
@@ -1337,7 +1507,7 @@ export default function App() {
                 unsubHistory();
             };
         }
-    }, [user, criticalStockItems]);
+    }, [user]);
     const handleLogout = async () => {
         await signOut(auth);
         setUser(null);
@@ -1403,6 +1573,9 @@ export default function App() {
         return <Login onLoginSuccess={() => setLoading(true)} />;
     }
 
+    // Filtrar items según la sucursal seleccionada
+    const filteredItems = selectedBranch === 'all' ? items : items.filter(item => item.branch === selectedBranch);
+
     // Responsive Sidebar
     const Sidebar = () => (
         <div className={`sidebar fixed z-40 inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-200 print:hidden
@@ -1429,12 +1602,16 @@ export default function App() {
                         <span>Escáner</span>
                     </button>
                     <button onClick={() => { setActiveView('codes'); setSidebarOpen(false); }} className={`flex items-center w-full px-4 py-3 space-x-3 rounded-lg ${activeView === 'codes' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
-                        <Barcode className="w-6 h-6"/>
+                        <Package className="w-6 h-6"/>
                         <span>Códigos</span>
                     </button>
                     <button onClick={() => { setActiveView('reports'); setSidebarOpen(false); }} className={`flex items-center w-full px-4 py-3 space-x-3 rounded-lg ${activeView === 'reports' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
                         <FileText className="w-6 h-6"/>
                         <span>Informes</span>
+                    </button>
+                    <button onClick={() => { setActiveView('migration'); setSidebarOpen(false); }} className={`flex items-center w-full px-4 py-3 space-x-3 rounded-lg ${activeView === 'migration' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                        <ArrowRight className="w-6 h-6"/>
+                        <span>Migrar Sucursales</span>
                     </button>
                 </nav>
             </div>
@@ -1484,9 +1661,8 @@ export default function App() {
     return (
         <div className="min-h-screen dark:bg-gray-900 transition-colors duration-200">
             {/* Estilos globales para impresión */}
-            <style jsx global>{`
+            <style>{`
                 @media print {
-                    /* Ocultar la barra lateral y navegación durante la impresión */
                     .sidebar,
                     nav,
                     aside,
@@ -1499,14 +1675,12 @@ export default function App() {
                         visibility: hidden !important;
                     }
                     
-                    /* Asegurar que el main ocupe todo el ancho */
                     main {
                         margin-left: 0 !important;
                         width: 100% !important;
                         padding: 0 !important;
                     }
                     
-                    /* Solo mostrar el contenido del reporte */
                     .report-container {
                         position: static !important;
                         width: 100% !important;
@@ -1516,46 +1690,78 @@ export default function App() {
                     }
                 }
             `}</style>
-            <HamburgerButton />
-            <ThemeToggleButton />
-            
-            {/* Overlay para cerrar sidebar en móviles */}
-            {sidebarOpen && (
-                <div 
-                    className="fixed inset-0 bg-black bg-opacity-50 z-30 sm:hidden print:hidden"
-                    onClick={() => setSidebarOpen(false)}
-                />
+
+            {/* Si no hay sucursal seleccionada, mostrar selector */}
+            {selectedBranch === null && (
+                <BranchSelection onSelectBranch={handleBranchSelection} />
             )}
-            
-            <div className="flex flex-col sm:flex-row h-screen font-sans">
-                <Sidebar />
-                <main className="flex-1 overflow-y-auto p-2 sm:p-6 bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
-                    {activeView === 'dashboard' && <Dashboard items={items} onNavigate={setActiveView} />}
-                    {activeView === 'inventory' && <InventoryList items={items} categories={categories} onSave={handleSaveItem} onDelete={handleDeleteItem} onUpdateStock={handleUpdateStock} itemsCount={items.length} />}
-                    {activeView === 'scanner' && (
-                        <div className="p-2 sm:p-6">
-                            <ScannerModule 
-                                items={items} 
-                                onSave={handleSaveItem} 
-                                onUpdateStock={handleUpdateStock}
-                                user={user}
-                            />
-                        </div>
+
+            {/* Aplicación principal */}
+            {selectedBranch !== null && (
+                <>
+                    <HamburgerButton />
+                    <ThemeToggleButton />
+                    
+                    {/* Overlay para cerrar sidebar en móviles */}
+                    {sidebarOpen && (
+                        <div 
+                            className="fixed inset-0 bg-black bg-opacity-50 z-30 sm:hidden print:hidden"
+                            onClick={() => setSidebarOpen(false)}
+                        />
                     )}
-                    {activeView === 'history' && <HistoryLog history={history} />}
-                    {activeView === 'codes' && <BarcodeModule items={items} refreshItems={refreshItems} />}
-                    {activeView === 'reports' && (
-                        <div className="p-2 sm:p-6">
-                            <ReportModule 
-                                items={items} 
-                                history={history} 
-                                categories={categories} 
-                            />
+                    
+                    <div className="flex flex-col h-screen font-sans">
+                        {/* Selector de sucursal en el header */}
+                        <BranchSelector 
+                            selectedBranch={selectedBranch} 
+                            onSelectBranch={handleBranchSelection}
+                            items={items}
+                        />
+                        
+                        <div className="flex flex-1">
+                            <Sidebar />
+                            <main className="flex-1 overflow-y-auto p-2 sm:p-6 bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
+                                {activeView === 'dashboard' && <Dashboard items={filteredItems} onNavigate={setActiveView} />}
+                                {activeView === 'inventory' && <InventoryList items={filteredItems} categories={categories} branches={branches} onSave={handleSaveItem} onDelete={handleDeleteItem} onUpdateStock={handleUpdateStock} itemsCount={items.length} />}
+                                {activeView === 'scanner' && (
+                                    <div className="p-2 sm:p-6">
+                                        <ScannerModule 
+                                            items={filteredItems} 
+                                            onSave={handleSaveItem} 
+                                            onUpdateStock={handleUpdateStock}
+                                            user={user}
+                                        />
+                                    </div>
+                                )}
+                                {activeView === 'history' && <HistoryLog history={history.filter(h => selectedBranch === 'all' || h.branch === selectedBranch)} />}
+                                {activeView === 'codes' && <BarcodeModule items={filteredItems} refreshItems={refreshItems} />}
+                                {activeView === 'reports' && (
+                                    <div className="p-2 sm:p-6">
+                                        <ReportModule 
+                                            items={filteredItems} 
+                                            history={history.filter(h => selectedBranch === 'all' || h.branch === selectedBranch)} 
+                                            categories={categories} 
+                                            branches={branches}
+                                        />
+                                    </div>
+                                )}
+                                {activeView === 'migration' && (
+                                    <div className="p-2 sm:p-6">
+                                        <InteractiveMigration 
+                                            items={items}
+                                            user={user}
+                                            onClose={() => setActiveView('dashboard')}
+                                            db={db}
+                                        />
+                                    </div>
+                                )}
+                            </main>
                         </div>
-                    )}
-                </main>
-                {showCriticalAlert && <CriticalStockAlert items={criticalStockItems} onClose={() => setShowCriticalAlert(false)} />}
-            </div>
+                    </div>
+                    
+                    {showCriticalAlert && <CriticalStockAlert items={criticalStockItems.filter(item => selectedBranch === 'all' || item.branch === selectedBranch)} onClose={() => setShowCriticalAlert(false)} />}
+                </>
+            )}
         </div>
     );
 }
