@@ -653,8 +653,30 @@ const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, ite
 
     const itemsPerPage = 10;
 
-    // Función para renderizar los controles de filtro
-    const FilterControls = () => (        <div className={`space-y-3 sm:space-y-0 sm:flex sm:items-center sm:space-x-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm transition-colors duration-200 ${showFilters ? 'block' : 'hidden sm:flex'}`}>
+    // Handler para el campo de búsqueda - versión simplificada
+    const handleSearchChange = useCallback((e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setSearchTerm(e.target.value);
+    }, []);
+
+    // Resetear página cuando cambien los filtros
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filterCategory, filterStock]);
+
+    // Handlers memoizados para evitar re-renders innecesarios
+    const handleCategoryChange = useCallback((e) => {
+        setFilterCategory(e.target.value);
+    }, []);
+
+    const handleStockChange = useCallback((e) => {
+        setFilterStock(e.target.value);
+    }, []);
+
+    // Controles de filtro memoizados
+    const FilterControls = useMemo(() => (
+        <div className={`space-y-3 sm:space-y-0 sm:flex sm:items-center sm:space-x-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm transition-colors duration-200 ${showFilters ? 'block' : 'hidden sm:flex'}`}>
             <div className="flex-1">
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
@@ -662,14 +684,19 @@ const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, ite
                         type="text"
                         placeholder="Buscar ítem..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={handleSearchChange}
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        spellCheck="false"
                         className="w-full pl-10 pr-4 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-colors duration-200"
                     />
                 </div>
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">                <select
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+                <select
                     value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
+                    onChange={handleCategoryChange}
                     className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white bg-white dark:bg-gray-700 transition-colors duration-200"
                 >
                     <option value="all">Todas las categorías</option>
@@ -679,7 +706,7 @@ const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, ite
                 </select>
                 <select
                     value={filterStock}
-                    onChange={(e) => setFilterStock(e.target.value)}
+                    onChange={handleStockChange}
                     className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white bg-white dark:bg-gray-700 transition-colors duration-200"
                 >
                     <option value="all">Todo el stock</option>
@@ -689,7 +716,7 @@ const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, ite
                 </select>
             </div>
         </div>
-    );
+    ), [searchTerm, filterCategory, filterStock, showFilters, categories, handleSearchChange, handleCategoryChange, handleStockChange]);
 
     const filteredAndSortedItems = useMemo(() => {
         let sortedItems = [...items];
@@ -774,7 +801,9 @@ const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, ite
                 </div>
             </div>
 
-            <FilterControls />        <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow-md transition-colors duration-200">
+            {FilterControls}
+
+            <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow-md transition-colors duration-200">
                 <div className="inline-block min-w-full align-middle">
                     <div className="overflow-hidden border border-gray-200 rounded-lg dark:border-gray-700">
                         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800 transition-colors duration-200"><thead className="bg-gray-50 dark:bg-gray-700 transition-colors duration-200">
@@ -1490,7 +1519,7 @@ export default function App() {
                 const critical = itemsList.filter(item => item.quantity <= item.criticalThreshold);
                 if (critical.length > 0) {
                     setCriticalStockItems(critical);
-                    setShowCriticalAlert(true);
+                    // setShowCriticalAlert(true); // Comentado para evitar popup molesto
                 }
             });
             const unsubCategories = onSnapshot(collection(db, 'categories'), (snapshot) => {
