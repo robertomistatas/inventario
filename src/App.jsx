@@ -1494,6 +1494,7 @@ export default function App() {
     const [selectedBranch, setSelectedBranch] = useState(null); // null = no seleccionado, 'all' = global, 'santiago', 'valparaiso'
     const [branches, setBranches] = useState([]);
     const [isBackfilling, setIsBackfilling] = useState(false);
+    const recentBranchFixRef = useRef(new Set());
 
     // ...existing code for data fetching and handlers...
 
@@ -1582,7 +1583,7 @@ export default function App() {
                 setCategories(catList);
             });
             const unsubBranches = onSnapshot(query(collection(db, 'branches'), orderBy('name')), (snapshot) => {
-                const branchesList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const branchesList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
                 setBranches(branchesList);
             });
             const unsubHistory = onSnapshot(collection(db, 'history'), (snapshot) => {
@@ -1597,12 +1598,46 @@ export default function App() {
             };
         }
     }, [user]);
+
+    useEffect(() => {
+        if (!selectedBranch || selectedBranch === 'all') return;
+        const now = Date.now();
+        const cutoffMs = 10 * 60 * 1000;
+        const candidates = items.filter(item => !item.branch && item.lastModified && !recentBranchFixRef.current.has(item.id));
+        if (candidates.length === 0) return;
+
+        candidates.forEach(async (item) => {
+            const lastModifiedDate = item.lastModified?.toDate?.();
+            if (!lastModifiedDate) return;
+            if (now - lastModifiedDate.getTime() > cutoffMs) return;
+
+            try {
+                await updateDoc(doc(db, 'items', item.id), {
+                    branch: selectedBranch,
+                    branchBackfilled: true,
+                    lastModified: serverTimestamp()
+                });
+                recentBranchFixRef.current.add(item.id);
+            } catch (error) {
+                console.error('Error asignando sucursal a item:', error);
+            }
+        });
+    }, [items, selectedBranch]);
     const handleLogout = async () => {
         await signOut(auth);
         setUser(null);
         setActiveView('dashboard');
     };
     const normalizeCode = useCallback((value) => (value || '').trim().toLowerCase(), []);
+    const normalizeBranchId = useCallback((value) => {
+        if (!value) return '';
+        return value
+            .toString()
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+    }, []);
     const findDuplicateByCode = useCallback((itemsList) => {
         const seen = new Map();
         const duplicates = [];
@@ -1624,12 +1659,18 @@ export default function App() {
         const resolvedBranch = itemData.branch || (selectedBranch && selectedBranch !== 'all' ? selectedBranch : getDefaultBranchId());
         const resolvedBranchName = getBranchName(resolvedBranch);
         const normalizedCode = normalizeCode(itemData.code);
+        const normalizedBranch = normalizeBranchId(resolvedBranch);
+
+        if (!resolvedBranch) {
+            alert('Seleccione una sucursal valida antes de guardar el item.');
+            return;
+        }
 
         if (normalizedCode) {
             const duplicate = items.find(item =>
                 item.id !== itemId &&
                 normalizeCode(item.code) === normalizedCode &&
-                item.branch === resolvedBranch
+                normalizeBranchId(item.branch) === normalizedBranch
             );
             if (duplicate) {
                 alert('Ya existe un item con el mismo codigo en esta sucursal.');
@@ -1795,7 +1836,9 @@ export default function App() {
     }
 
     // Filtrar items según la sucursal seleccionada
-    const filteredItems = selectedBranch === 'all' ? items : items.filter(item => item.branch === selectedBranch);
+    const filteredItems = selectedBranch === 'all'
+        ? items
+        : items.filter(item => normalizeBranchId(item.branch) === normalizeBranchId(selectedBranch));
 
     // Responsive Sidebar
     const Sidebar = () => (
