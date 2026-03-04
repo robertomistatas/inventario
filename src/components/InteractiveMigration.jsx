@@ -196,6 +196,8 @@ const InteractiveMigration = ({ items, user, onClose, db }) => {
                 santiagoTotal: migrationSummary.santiagoTotal,
                 valparaisoTotal: migrationSummary.valparaisoTotal,
                 userEmail: user.email,
+                branch: 'all',
+                branchName: 'Global',
                 timestamp: serverTimestamp(),
                 details: 'Migración interactiva completada'
             });

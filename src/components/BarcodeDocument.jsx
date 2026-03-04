@@ -50,7 +50,7 @@ const BarcodeDocument = ({ items }) => {
             <div ref={printRef} className="print-grid">
                 {filteredItems.map((item) => (
                     <div 
-                        key={item.code} 
+                        key={item.id} 
                         className="barcode-item p-4 border border-gray-200 rounded-lg flex flex-col items-center justify-center break-inside-avoid"
                     >
                         <h3 className="text-sm font-medium text-center mb-2">{item.name}</h3>

@@ -6,6 +6,7 @@ const ReportModule = ({ items, history, categories, branches }) => {
     const [dateRange, setDateRange] = useState('30');
     const [includeHistory, setIncludeHistory] = useState(true);
     const [includeStatistics, setIncludeStatistics] = useState(true);
+    const activeBranches = branches.filter(branch => branch.active !== false);
 
     // Orden de prioridad de categorías (Dispositivos Inteligentes siempre primero)
     const categoryPriority = [
@@ -587,7 +588,7 @@ const ReportModule = ({ items, history, categories, branches }) => {
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:border-gray-500 dark:text-white transition-all"
                             >
                                 <option value="all">Todas las Sucursales</option>
-                                {branches.map(branch => (
+                                {activeBranches.map(branch => (
                                     <option key={branch.id} value={branch.id}>{branch.name}</option>
                                 ))}
                             </select>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, getDocs, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp, setDoc } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, where, writeBatch, serverTimestamp, setDoc, orderBy, startAfter, limit, documentId } from 'firebase/firestore';
 import { ChevronDown, ChevronUp, Search, PlusCircle, Edit, Trash2, Box, AlertTriangle, CheckCircle, Package, History, LogOut, Moon, Sun, X, Scan, FileText, ArrowRight } from 'lucide-react';
 import ScannerModule from './components/ScannerModule';
 import BarcodeModule from './components/BarcodeModule';
@@ -77,9 +77,18 @@ const initialData = {
 
 
 // --- FUNCIÓN PARA GENERAR CÓDIGO DE ITEM ---
+const resolveCategoryName = (category) => {
+    if (typeof category === 'string') return category;
+    if (category && typeof category === 'object' && typeof category.name === 'string') return category.name;
+    return '';
+};
+
 const generateItemCode = (category, name, count) => {
-    const categoryAbbr = category.substring(0, 3).toUpperCase();
-    const nameAbbr = name.replace(/[^A-Z0-9]/ig, "").substring(0, 3).toUpperCase();
+    const categoryName = resolveCategoryName(category);
+    const categoryAbbr = categoryName.replace(/[^A-Z0-9]/ig, "").substring(0, 3).toUpperCase();
+    const safeName = typeof name === 'string' ? name : '';
+    const nameAbbr = safeName.replace(/[^A-Z0-9]/ig, "").substring(0, 3).toUpperCase();
+    if (!categoryAbbr || !nameAbbr) return '';
     const number = (count + 1).toString().padStart(3, '0');
     return `${categoryAbbr}-${nameAbbr}-${number}`;
 };
@@ -87,10 +96,26 @@ const generateItemCode = (category, name, count) => {
 // --- FUNCIÓN PARA PRECARGAR DATOS INICIALES ---
 const seedDatabase = async () => {
     console.log("Verificando si la base de datos necesita ser inicializada...");
+    const branchesCollection = collection(db, 'branches');
+    const branchesSnapshot = await getDocs(branchesCollection);
     const itemsCollection = collection(db, 'items');
     const itemsSnapshot = await getDocs(itemsCollection);
+
+    if (branchesSnapshot.empty) {
+        const batch = writeBatch(db);
+        initialData.branches.forEach((branch) => {
+            const branchRef = doc(db, 'branches', branch.id);
+            batch.set(branchRef, {
+                id: branch.id,
+                name: branch.name,
+                active: true,
+                createdAt: serverTimestamp()
+            });
+        });
+        await batch.commit();
+        console.log("¡Sucursales iniciales cargadas con éxito!");
+    }
     if (itemsSnapshot.empty) {
-        console.log("Base de datos vacía. Inicializando con datos de ejemplo...");
         const batch = writeBatch(db);
 
         // Añadir categorías
@@ -99,23 +124,10 @@ const seedDatabase = async () => {
             batch.set(categoryRef, { name: categoryName });
         });
 
-        // Añadir items
-        let itemCounter = 0;
-        for (const itemData of initialData.items) {
-            const code = generateItemCode(itemData.category, itemData.name, itemCounter);
-            const itemRef = doc(collection(db, 'items'));
-            batch.set(itemRef, {
-                ...itemData,
-                code: code,
-                lastModified: serverTimestamp()
-            });
-            itemCounter++;
-        }
-        
         await batch.commit();
-        console.log("¡Datos iniciales cargados con éxito!");
+        console.log("Categorias iniciales cargadas con exito. Seed de items deshabilitado.");
     } else {
-        console.log("La base de datos ya contiene datos. No se requiere inicialización.");
+        console.log("La base de datos ya contiene datos. No se requiere inicializacion.");
     }
 };
 
@@ -448,9 +460,13 @@ const Dashboard = ({ items, onNavigate }) => {
     );
 };
 
-const ItemModal = ({ item, categories, onSave, onClose, itemsCount }) => {
+const ItemModal = ({ item, categories, branches, selectedBranch, onSave, onClose, itemsCount }) => {
+    const activeBranches = branches.filter(branch => branch.active !== false);
+    const defaultBranchId = item?.branch || (selectedBranch && selectedBranch !== 'all' ? selectedBranch : activeBranches[0]?.id || '');
     const [formData, setFormData] = useState(
-        item || { name: '', category: categories[0] || '', quantity: 0, criticalThreshold: 5, description: '' }
+        item
+            ? { ...item, branch: item.branch || defaultBranchId }
+            : { name: '', category: categories[0] || '', quantity: 0, criticalThreshold: 5, description: '', branch: defaultBranchId }
     );
     const [errors, setErrors] = useState({});
 
@@ -462,9 +478,15 @@ const ItemModal = ({ item, categories, onSave, onClose, itemsCount }) => {
     const validate = () => {
         const newErrors = {};
         if (!formData.name.trim()) newErrors.name = "El nombre es obligatorio.";
+        const categoryName = resolveCategoryName(formData.category);
+        if (!categoryName.trim()) newErrors.category = "La categoria es obligatoria.";
         if (formData.quantity < 0) newErrors.quantity = "La cantidad no puede ser negativa.";
         if (formData.criticalThreshold <= 0) newErrors.criticalThreshold = "El umbral debe ser positivo.";
         if (formData.quantity < formData.criticalThreshold) newErrors.criticalThreshold = "El umbral crítico no puede ser mayor que la cantidad inicial.";
+        if (!formData.branch) newErrors.branch = "La sucursal es obligatoria.";
+        if (formData.branch && !activeBranches.find(branch => branch.id === formData.branch)) {
+            newErrors.branch = "La sucursal seleccionada no es válida.";
+        }
         
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -477,6 +499,10 @@ const ItemModal = ({ item, categories, onSave, onClose, itemsCount }) => {
         let itemToSave = { ...formData };
         if (!item) { // Si es un item nuevo, generamos código
             const code = generateItemCode(formData.category, formData.name, itemsCount);
+            if (!code) {
+                setErrors(prev => ({ ...prev, category: "Categoria invalida. Seleccione una categoria valida." }));
+                return;
+            }
             itemToSave.code = code;
         }
 
@@ -504,6 +530,17 @@ const ItemModal = ({ item, categories, onSave, onClose, itemsCount }) => {
                         <select name="category" value={formData.category} onChange={handleChange} className="w-full px-3 py-2 mt-1 text-gray-900 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600">
                            {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
                         </select>
+                        {errors.category && <p className="mt-1 text-xs text-red-500">{errors.category}</p>}
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sucursal</label>
+                        <select name="branch" value={formData.branch} onChange={handleChange} className="w-full px-3 py-2 mt-1 text-gray-900 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                           <option value="">Seleccione una sucursal</option>
+                           {activeBranches.map(branch => (
+                               <option key={branch.id} value={branch.id}>{branch.name}</option>
+                           ))}
+                        </select>
+                        {errors.branch && <p className="mt-1 text-xs text-red-500">{errors.branch}</p>}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -640,7 +677,7 @@ const CriticalStockAlert = ({ items, onClose }) => {
     );
 };
 
-const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, itemsCount }) => {
+const InventoryList = ({ items, categories, branches, selectedBranch, onSave, onDelete, onUpdateStock, itemsCount }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState('all');
     const [filterStock, setFilterStock] = useState('all');
@@ -806,7 +843,8 @@ const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, ite
             <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow-md transition-colors duration-200">
                 <div className="inline-block min-w-full align-middle">
                     <div className="overflow-hidden border border-gray-200 rounded-lg dark:border-gray-700">
-                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800 transition-colors duration-200"><thead className="bg-gray-50 dark:bg-gray-700 transition-colors duration-200">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800 transition-colors duration-200">
+                            <thead className="bg-gray-50 dark:bg-gray-700 transition-colors duration-200">
                                 <tr>
                                     {['Código', 'Nombre', 'Categoría', 'Cantidad', 'Acciones'].map((header, index) => (
                                         <th
@@ -819,7 +857,8 @@ const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, ite
                                         </th>
                                     ))}
                                 </tr>
-                            </thead>                            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700 transition-colors duration-200">
+                            </thead>
+                            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700 transition-colors duration-200">
                                 {paginatedItems.map(item => (
                                     <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
                                         <td className="hidden sm:table-cell px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
@@ -849,24 +888,27 @@ const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, ite
                                             <div className="flex items-center space-x-2">
                                                 <button
                                                     onClick={() => setStockEditModal(item)}
-                                                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                                    title="Ajustar stock"
                                                 >
-                                                    <Edit className="w-5 h-5" />
+                                                    <Edit className="w-4 h-4" />
                                                 </button>
                                                 <button
                                                     onClick={() => {
                                                         setEditingItem(item);
                                                         setIsModalOpen(true);
                                                     }}
-                                                    className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
+                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-blue-600 bg-blue-600 text-white hover:bg-blue-700 hover:border-blue-700 dark:border-blue-500 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors"
+                                                    title="Editar ítem"
                                                 >
-                                                    <PlusCircle className="w-5 h-5" />
+                                                    <PlusCircle className="w-4 h-4" />
                                                 </button>
                                                 <button
                                                     onClick={() => onDelete(item.id)}
-                                                    className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50 transition-colors"
+                                                    title="Eliminar ítem (no borra historial)"
                                                 >
-                                                    <Trash2 className="w-5 h-5" />
+                                                    <Trash2 className="w-4 h-4" />
                                                 </button>
                                             </div>
                                         </td>
@@ -907,6 +949,8 @@ const InventoryList = ({ items, categories, onSave, onDelete, onUpdateStock, ite
                 <ItemModal
                     item={editingItem}
                     categories={categories}
+                    branches={branches}
+                    selectedBranch={selectedBranch}
                     onSave={onSave}
                     onClose={() => {
                         setIsModalOpen(false);
@@ -1295,7 +1339,9 @@ const HistoryLog = ({ history }) => {
 };
 
 // Componente de selección inicial de sucursal
-const BranchSelection = ({ onSelectBranch }) => {
+const BranchSelection = ({ branches, onSelectBranch }) => {
+    const activeBranches = branches.filter(branch => branch.active !== false);
+
     return (
         <div className="flex items-center justify-center min-h-screen p-4 bg-gray-100 dark:bg-gray-900">
             <div className="w-full max-w-2xl mx-auto">
@@ -1311,39 +1357,24 @@ const BranchSelection = ({ onSelectBranch }) => {
                     </div>
                     
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        {/* Inventario Santiago */}
-                        <button
-                            onClick={() => onSelectBranch('santiago')}
-                            className="group relative p-6 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl shadow-lg hover:from-blue-600 hover:to-blue-700 transform hover:scale-105 transition-all duration-200 text-center"
-                        >
-                            <div className="flex flex-col items-center space-y-3">
-                                <div className="p-3 bg-white bg-opacity-20 rounded-full">
-                                    <Box className="w-8 h-8" />
+                        {activeBranches.map(branch => (
+                            <button
+                                key={branch.id}
+                                onClick={() => onSelectBranch(branch.id)}
+                                className="group relative p-6 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl shadow-lg hover:from-blue-600 hover:to-blue-700 transform hover:scale-105 transition-all duration-200 text-center"
+                            >
+                                <div className="flex flex-col items-center space-y-3">
+                                    <div className="p-3 bg-white bg-opacity-20 rounded-full">
+                                        <Box className="w-8 h-8" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-semibold">{branch.name}</h3>
+                                        <p className="text-sm opacity-90">Inventario de sucursal</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h3 className="text-lg font-semibold">Santiago</h3>
-                                    <p className="text-sm opacity-90">Inventario Regional Metropolitana</p>
-                                </div>
-                            </div>
-                        </button>
+                            </button>
+                        ))}
 
-                        {/* Inventario Valparaíso */}
-                        <button
-                            onClick={() => onSelectBranch('valparaiso')}
-                            className="group relative p-6 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl shadow-lg hover:from-green-600 hover:to-green-700 transform hover:scale-105 transition-all duration-200 text-center"
-                        >
-                            <div className="flex flex-col items-center space-y-3">
-                                <div className="p-3 bg-white bg-opacity-20 rounded-full">
-                                    <Package className="w-8 h-8" />
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-semibold">Valparaíso</h3>
-                                    <p className="text-sm opacity-90">Inventario Región de Valparaíso</p>
-                                </div>
-                            </div>
-                        </button>
-
-                        {/* Inventario Global */}
                         <button
                             onClick={() => onSelectBranch('all')}
                             className="group relative p-6 bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl shadow-lg hover:from-purple-600 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 text-center"
@@ -1372,7 +1403,9 @@ const BranchSelection = ({ onSelectBranch }) => {
 };
 
 // Componente selector de sucursal en el header
-const BranchSelector = ({ selectedBranch, onSelectBranch, items }) => {
+const BranchSelector = ({ selectedBranch, onSelectBranch, items, branches }) => {
+    const activeBranches = branches.filter(branch => branch.active !== false);
+
     const getBranchStats = (branchId) => {
         const branchItems = branchId === 'all' ? items : items.filter(item => item.branch === branchId);
         return {
@@ -1383,8 +1416,7 @@ const BranchSelector = ({ selectedBranch, onSelectBranch, items }) => {
     };
 
     const branchOptions = [
-        { id: 'santiago', name: 'Santiago' },
-        { id: 'valparaiso', name: 'Valparaíso' },
+        ...activeBranches.map(branch => ({ id: branch.id, name: branch.name })),
         { id: 'all', name: 'Global' }
     ];
 
@@ -1392,7 +1424,7 @@ const BranchSelector = ({ selectedBranch, onSelectBranch, items }) => {
 
     return (
         <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 print:hidden">
-            <div className="px-4 py-3">
+            <div className="px-4 py-3 sm:pr-16">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
                     <div className="flex items-center space-x-4">
                         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -1461,6 +1493,7 @@ export default function App() {
     // Estados para el sistema de sucursales
     const [selectedBranch, setSelectedBranch] = useState(null); // null = no seleccionado, 'all' = global, 'santiago', 'valparaiso'
     const [branches, setBranches] = useState([]);
+    const [isBackfilling, setIsBackfilling] = useState(false);
 
     // ...existing code for data fetching and handlers...
 
@@ -1474,6 +1507,15 @@ export default function App() {
         setSelectedBranch(branchId);
         localStorage.setItem('selectedBranch', branchId);
     };
+    const activeBranches = useMemo(() => branches.filter(branch => branch.active !== false), [branches]);
+    const getBranchName = useCallback((branchId) => {
+        if (!branchId) return '';
+        const branch = branches.find(b => b.id === branchId);
+        return branch ? branch.name : branchId;
+    }, [branches]);
+    const getDefaultBranchId = useCallback(() => {
+        return activeBranches[0]?.id || '';
+    }, [activeBranches]);
     useEffect(() => {
         initializeData();
     }, [initializeData]);
@@ -1503,6 +1545,15 @@ export default function App() {
             setSelectedBranch(savedBranch);
         }
     }, []);
+
+    useEffect(() => {
+        if (!activeBranches.length || !selectedBranch) return;
+        const activeIds = activeBranches.map(branch => branch.id);
+        if (selectedBranch !== 'all' && !activeIds.includes(selectedBranch)) {
+            setSelectedBranch('all');
+            localStorage.setItem('selectedBranch', 'all');
+        }
+    }, [activeBranches, selectedBranch]);
     
     useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
@@ -1516,6 +1567,10 @@ export default function App() {
             const unsubItems = onSnapshot(collection(db, 'items'), (snapshot) => {
                 const itemsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setItems(itemsList);
+                const duplicates = findDuplicateByCode(itemsList);
+                if (duplicates.length > 0) {
+                    console.warn('Items duplicados por code+branch detectados:', duplicates);
+                }
                 const critical = itemsList.filter(item => item.quantity <= item.criticalThreshold);
                 if (critical.length > 0) {
                     setCriticalStockItems(critical);
@@ -1526,6 +1581,10 @@ export default function App() {
                 const catList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setCategories(catList);
             });
+            const unsubBranches = onSnapshot(query(collection(db, 'branches'), orderBy('name')), (snapshot) => {
+                const branchesList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setBranches(branchesList);
+            });
             const unsubHistory = onSnapshot(collection(db, 'history'), (snapshot) => {
                 const historyList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setHistory(historyList);
@@ -1533,6 +1592,7 @@ export default function App() {
             return () => {
                 unsubItems();
                 unsubCategories();
+                unsubBranches();
                 unsubHistory();
             };
         }
@@ -1542,20 +1602,53 @@ export default function App() {
         setUser(null);
         setActiveView('dashboard');
     };
+    const normalizeCode = useCallback((value) => (value || '').trim().toLowerCase(), []);
+    const findDuplicateByCode = useCallback((itemsList) => {
+        const seen = new Map();
+        const duplicates = [];
+        itemsList.forEach(item => {
+            const normalized = normalizeCode(item.code);
+            if (!normalized) return;
+            const key = `${item.branch || ''}::${normalized}`;
+            if (seen.has(key)) {
+                duplicates.push({ key, ids: [seen.get(key), item.id] });
+            } else {
+                seen.set(key, item.id);
+            }
+        });
+        return duplicates;
+    }, [normalizeCode]);
     const handleSaveItem = async (itemData, itemId) => {
         const itemRef = itemId ? doc(db, 'items', itemId) : doc(collection(db, 'items'));
         const isNewItem = !itemId;
+        const resolvedBranch = itemData.branch || (selectedBranch && selectedBranch !== 'all' ? selectedBranch : getDefaultBranchId());
+        const resolvedBranchName = getBranchName(resolvedBranch);
+        const normalizedCode = normalizeCode(itemData.code);
+
+        if (normalizedCode) {
+            const duplicate = items.find(item =>
+                item.id !== itemId &&
+                normalizeCode(item.code) === normalizedCode &&
+                item.branch === resolvedBranch
+            );
+            if (duplicate) {
+                alert('Ya existe un item con el mismo codigo en esta sucursal.');
+                return;
+            }
+        }
         const historyData = {
             itemName: itemData.name,
             type: isNewItem ? 'creación' : 'edición',
             quantityChanged: isNewItem ? itemData.quantity : null,
             userEmail: user.email,
+            branch: resolvedBranch,
+            branchName: resolvedBranchName,
             timestamp: serverTimestamp()
         };
         if (itemId) {
-            await updateDoc(itemRef, { ...itemData, lastModified: serverTimestamp() });
+            await updateDoc(itemRef, { ...itemData, branch: resolvedBranch, lastModified: serverTimestamp() });
         } else {
-            await setDoc(itemRef, { ...itemData, lastModified: serverTimestamp() });
+            await setDoc(itemRef, { ...itemData, branch: resolvedBranch, lastModified: serverTimestamp() });
         }
         await addDoc(collection(db, "history"), historyData);
     };
@@ -1565,6 +1658,12 @@ export default function App() {
     const handleUpdateStock = async (itemId, newQuantity, movementType, quantityChanged, motivo = '') => {
         const itemRef = doc(db, 'items', itemId);
         const item = items.find(i => i.id === itemId);
+        if (!item) {
+            alert('No se encontro el item a actualizar. Refresca e intenta nuevamente.');
+            return;
+        }
+        const resolvedBranch = item?.branch || (selectedBranch && selectedBranch !== 'all' ? selectedBranch : getDefaultBranchId());
+        const resolvedBranchName = getBranchName(resolvedBranch);
         await updateDoc(itemRef, {
             quantity: newQuantity,
             lastModified: serverTimestamp()
@@ -1580,6 +1679,8 @@ export default function App() {
             quantityAfter: newQuantity,
             quantityChanged: quantityChanged,
             userEmail: user.email,
+            branch: resolvedBranch,
+            branchName: resolvedBranchName,
             timestamp: serverTimestamp(),
             motivo: motivo,
             fecha: now.toISOString().split('T')[0],
@@ -1595,6 +1696,97 @@ export default function App() {
         const itemsSnapshot = await getDocs(collection(db, 'items'));
         return itemsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     };
+
+    const runBranchBackfill = useCallback(async () => {
+        if (isBackfilling) return;
+        setIsBackfilling(true);
+        try {
+            const defaultBranchId = activeBranches[0]?.id || 'santiago';
+            const defaultBranchName = getBranchName(defaultBranchId);
+            const itemsMap = new Map();
+            const allItemsSnap = await getDocs(collection(db, 'items'));
+            allItemsSnap.forEach(docSnap => {
+                const data = docSnap.data();
+                itemsMap.set(docSnap.id, {
+                    branch: data.branch || defaultBranchId,
+                    branchName: getBranchName(data.branch || defaultBranchId)
+                });
+            });
+
+            const pageSize = 400;
+            const updateMissingBranches = async (collectionName, resolver) => {
+                let updatedCount = 0;
+                const runQueryPass = async (branchValue) => {
+                    let lastDoc = null;
+                    while (true) {
+                        let q = query(
+                            collection(db, collectionName),
+                            where('branch', '==', branchValue),
+                            orderBy(documentId()),
+                            limit(pageSize)
+                        );
+                        if (lastDoc) {
+                            q = query(
+                                collection(db, collectionName),
+                                where('branch', '==', branchValue),
+                                orderBy(documentId()),
+                                startAfter(lastDoc),
+                                limit(pageSize)
+                            );
+                        }
+                        const snap = await getDocs(q);
+                        if (snap.empty) break;
+                        const batch = writeBatch(db);
+                        snap.docs.forEach(docSnap => {
+                            const updates = resolver(docSnap);
+                            batch.update(docSnap.ref, updates);
+                            updatedCount += 1;
+                        });
+                        await batch.commit();
+                        lastDoc = snap.docs[snap.docs.length - 1];
+                    }
+                };
+                await runQueryPass(null);
+                await runQueryPass('');
+                return updatedCount;
+            };
+
+            const itemsUpdated = await updateMissingBranches('items', (docSnap) => {
+                const data = docSnap.data();
+                return {
+                    branch: data.branch || defaultBranchId,
+                    branchBackfilled: true
+                };
+            });
+
+            const historyUpdated = await updateMissingBranches('history', (docSnap) => {
+                const data = docSnap.data();
+                let resolvedBranch = defaultBranchId;
+                let resolvedBranchName = defaultBranchName;
+                if (data.itemId && itemsMap.has(data.itemId)) {
+                    const itemBranch = itemsMap.get(data.itemId);
+                    resolvedBranch = itemBranch.branch;
+                    resolvedBranchName = itemBranch.branchName;
+                } else if (!data.itemId) {
+                    resolvedBranch = 'unknown';
+                    resolvedBranchName = 'Desconocida';
+                }
+                return {
+                    branch: resolvedBranch,
+                    branchName: resolvedBranchName,
+                    branchBackfilled: true
+                };
+            });
+
+            console.log('Backfill completado', { itemsUpdated, historyUpdated });
+            alert(`Backfill completado. Items: ${itemsUpdated}, Historial: ${historyUpdated}`);
+        } catch (error) {
+            console.error('Error en backfill:', error);
+            alert('Error durante el backfill: ' + error.message);
+        } finally {
+            setIsBackfilling(false);
+        }
+    }, [activeBranches, getBranchName, isBackfilling]);
     if (loading) {
         return <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900"><div className="w-16 h-16 border-4 border-blue-500 border-dashed rounded-full animate-spin"></div></div>;
     }
@@ -1642,6 +1834,14 @@ export default function App() {
                         <ArrowRight className="w-6 h-6"/>
                         <span>Migrar Sucursales</span>
                     </button>
+                    <button
+                        onClick={runBranchBackfill}
+                        disabled={isBackfilling}
+                        className="flex items-center w-full px-4 py-3 space-x-3 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+                    >
+                        <Package className="w-6 h-6"/>
+                        <span>{isBackfilling ? 'Backfill en curso...' : 'Backfill Sucursales'}</span>
+                    </button>
                 </nav>
             </div>
             <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
@@ -1676,16 +1876,6 @@ export default function App() {
         </button>
     );
 
-    // Botón flotante de cambio de tema
-    const ThemeToggleButton = () => (
-        <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className={`fixed ${sidebarOpen ? 'top-16' : 'top-4'} right-4 z-50 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 p-2 rounded-full shadow-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200 print:hidden sm:top-4`}
-            title={isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-        >
-            {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-        </button>
-    );
 
     return (
         <div className="min-h-screen dark:bg-gray-900 transition-colors duration-200">
@@ -1722,14 +1912,13 @@ export default function App() {
 
             {/* Si no hay sucursal seleccionada, mostrar selector */}
             {selectedBranch === null && (
-                <BranchSelection onSelectBranch={handleBranchSelection} />
+                <BranchSelection branches={branches} onSelectBranch={handleBranchSelection} />
             )}
 
             {/* Aplicación principal */}
             {selectedBranch !== null && (
                 <>
                     <HamburgerButton />
-                    <ThemeToggleButton />
                     
                     {/* Overlay para cerrar sidebar en móviles */}
                     {sidebarOpen && (
@@ -1745,13 +1934,25 @@ export default function App() {
                             selectedBranch={selectedBranch} 
                             onSelectBranch={handleBranchSelection}
                             items={items}
+                            branches={branches}
                         />
                         
                         <div className="flex flex-1">
                             <Sidebar />
                             <main className="flex-1 overflow-y-auto p-2 sm:p-6 bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
                                 {activeView === 'dashboard' && <Dashboard items={filteredItems} onNavigate={setActiveView} />}
-                                {activeView === 'inventory' && <InventoryList items={filteredItems} categories={categories} branches={branches} onSave={handleSaveItem} onDelete={handleDeleteItem} onUpdateStock={handleUpdateStock} itemsCount={items.length} />}
+                                {activeView === 'inventory' && (
+                                    <InventoryList 
+                                        items={filteredItems} 
+                                        categories={categories} 
+                                        branches={branches}
+                                        selectedBranch={selectedBranch}
+                                        onSave={handleSaveItem} 
+                                        onDelete={handleDeleteItem} 
+                                        onUpdateStock={handleUpdateStock} 
+                                        itemsCount={items.length} 
+                                    />
+                                )}
                                 {activeView === 'scanner' && (
                                     <div className="p-2 sm:p-6">
                                         <ScannerModule 

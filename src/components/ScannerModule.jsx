@@ -104,6 +104,7 @@ const ScannerModule = ({ items, onSave, onUpdateStock }) => {
                             ? 'bg-red-600 hover:bg-red-700 text-white' 
                             : 'bg-blue-600 hover:bg-blue-700 text-white'
                     } transition-colors duration-200`}
+                    title="Escanear código de barras"
                 >
                     <Scan className="w-5 h-5 mr-2" />
                     {isActive ? 'Detener Escaneo' : 'Iniciar Escaneo'}
@@ -117,6 +118,7 @@ const ScannerModule = ({ items, onSave, onUpdateStock }) => {
                             <button
                                 onClick={() => handleModeSelect('add')}
                                 className="flex items-center justify-center p-4 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-800/50"
+                                title="Agregar stock"
                             >
                                 <Plus className="w-6 h-6 mr-2" />
                                 Agregar Productos
@@ -124,6 +126,7 @@ const ScannerModule = ({ items, onSave, onUpdateStock }) => {
                             <button
                                 onClick={() => handleModeSelect('remove')}
                                 className="flex items-center justify-center p-4 bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-800/50"
+                                title="Retirar stock (requiere motivo)"
                             >
                                 <Minus className="w-6 h-6 mr-2" />
                                 Retirar Productos
