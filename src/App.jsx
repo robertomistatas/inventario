@@ -465,8 +465,19 @@ const ItemModal = ({ item, categories, branches, selectedBranch, onSave, onClose
     const defaultBranchId = item?.branch || (selectedBranch && selectedBranch !== 'all' ? selectedBranch : activeBranches[0]?.id || '');
     const [formData, setFormData] = useState(
         item
-            ? { ...item, branch: item.branch || defaultBranchId }
-            : { name: '', category: categories[0] || '', quantity: 0, criticalThreshold: 5, description: '', branch: defaultBranchId }
+            ? {
+                ...item,
+                category: resolveCategoryName(item.category),
+                branch: item.branch || defaultBranchId
+            }
+            : {
+                name: '',
+                category: categories[0]?.name || '',
+                quantity: 0,
+                criticalThreshold: 5,
+                description: '',
+                branch: defaultBranchId
+            }
     );
     const [errors, setErrors] = useState({});
 
@@ -496,7 +507,7 @@ const ItemModal = ({ item, categories, branches, selectedBranch, onSave, onClose
         e.preventDefault();
         if (!validate()) return;
         
-        let itemToSave = { ...formData };
+        let itemToSave = { ...formData, category: resolveCategoryName(formData.category) };
         if (!item) { // Si es un item nuevo, generamos código
             const code = generateItemCode(formData.category, formData.name, itemsCount);
             if (!code) {
@@ -761,7 +772,7 @@ const InventoryList = ({ items, categories, branches, selectedBranch, onSave, on
         // Filtrado
         sortedItems = sortedItems.filter(item => {
             const searchMatch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) || item.code.toLowerCase().includes(searchTerm.toLowerCase());
-            const categoryMatch = filterCategory === 'all' || item.category === filterCategory;
+            const categoryMatch = filterCategory === 'all' || resolveCategoryName(item.category) === filterCategory;
             const stockMatch = filterStock === 'all' || 
                 (filterStock === 'sufficient' && item.quantity > item.criticalThreshold * 1.5) ||
                 (filterStock === 'low' && item.quantity > item.criticalThreshold && item.quantity <= item.criticalThreshold * 1.5) ||
@@ -859,7 +870,9 @@ const InventoryList = ({ items, categories, branches, selectedBranch, onSave, on
                                 </tr>
                             </thead>
                             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700 transition-colors duration-200">
-                                {paginatedItems.map(item => (
+                                {paginatedItems.map(item => {
+                                    const itemCategory = resolveCategoryName(item.category);
+                                    return (
                                     <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
                                         <td className="hidden sm:table-cell px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
                                             {item.code}
@@ -868,12 +881,12 @@ const InventoryList = ({ items, categories, branches, selectedBranch, onSave, on
                                             <div className="flex flex-col">
                                                 <span className="font-medium text-gray-900 dark:text-white">{item.name}</span>
                                                 <span className="text-xs text-gray-500 dark:text-gray-400 sm:hidden">
-                                                    {item.code} - {item.category}
+                                                    {item.code} - {itemCategory}
                                                 </span>
                                             </div>
                                         </td>
                                         <td className="hidden sm:table-cell px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
-                                            {item.category}
+                                            {itemCategory}
                                         </td>
                                         <td className="px-3 py-4">
                                             <div className="flex items-center">
@@ -913,7 +926,7 @@ const InventoryList = ({ items, categories, branches, selectedBranch, onSave, on
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
+                                )})}
                             </tbody>
                         </table>
                     </div>
@@ -1566,7 +1579,14 @@ export default function App() {
     useEffect(() => {
         if (user) {
             const unsubItems = onSnapshot(collection(db, 'items'), (snapshot) => {
-                const itemsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const itemsList = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        ...data,
+                        category: resolveCategoryName(data.category)
+                    };
+                });
                 setItems(itemsList);
                 const duplicates = findDuplicateByCode(itemsList);
                 if (duplicates.length > 0) {
@@ -1656,10 +1676,16 @@ export default function App() {
     const handleSaveItem = async (itemData, itemId) => {
         const itemRef = itemId ? doc(db, 'items', itemId) : doc(collection(db, 'items'));
         const isNewItem = !itemId;
+        const resolvedCategory = resolveCategoryName(itemData.category).trim();
         const resolvedBranch = itemData.branch || (selectedBranch && selectedBranch !== 'all' ? selectedBranch : getDefaultBranchId());
         const resolvedBranchName = getBranchName(resolvedBranch);
         const normalizedCode = normalizeCode(itemData.code);
         const normalizedBranch = normalizeBranchId(resolvedBranch);
+
+        if (!resolvedCategory) {
+            alert('Seleccione una categoria valida antes de guardar el item.');
+            return;
+        }
 
         if (!resolvedBranch) {
             alert('Seleccione una sucursal valida antes de guardar el item.');
@@ -1682,14 +1708,16 @@ export default function App() {
             type: isNewItem ? 'creación' : 'edición',
             quantityChanged: isNewItem ? itemData.quantity : null,
             userEmail: user.email,
+            category: resolvedCategory,
             branch: resolvedBranch,
             branchName: resolvedBranchName,
             timestamp: serverTimestamp()
         };
+        const payload = { ...itemData, category: resolvedCategory, branch: resolvedBranch, lastModified: serverTimestamp() };
         if (itemId) {
-            await updateDoc(itemRef, { ...itemData, branch: resolvedBranch, lastModified: serverTimestamp() });
+            await updateDoc(itemRef, payload);
         } else {
-            await setDoc(itemRef, { ...itemData, branch: resolvedBranch, lastModified: serverTimestamp() });
+            await setDoc(itemRef, payload);
         }
         await addDoc(collection(db, "history"), historyData);
     };
